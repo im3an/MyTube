@@ -38,10 +38,6 @@ export const config = {
     origin: process.env.CORS_ORIGIN || '*',
   },
 
-  cobalt: {
-    base: process.env.COBALT_API_URL || process.env.VITE_COBALT_API_URL || 'https://api.cobalt.tools',
-  },
-
   gnews: {
     apiKey: process.env.GNEWS_API_KEY || process.env.VITE_GNEWS_API_KEY || '',
   },

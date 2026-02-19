@@ -177,7 +177,7 @@ Never return `null`. ChannelPage already has Loading/Error/!channel; ensure Watc
 - **WatchPage:** Fetch `/streams/:id` only when user navigates to watch.
 - **useVideosByIds** in `useYouTube.ts` currently calls `getVideo` for up to 8 IDs — this fetches full stream data. Replace with a lightweight metadata endpoint if available, or remove bulk fetch and show thumbnails from search/trending only.
 - Lazy-load stream URL; abort previous fetch if user navigates away (AbortController).
-- `useCobaltStreamUrl` is fine as fallback when Piped streams fail.
+- When Piped streams fail, fall back to YouTube embed.
 
 ---
 

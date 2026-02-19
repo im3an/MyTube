@@ -53,3 +53,15 @@ export async function requestYtdlDownload(
   const blobUrl = URL.createObjectURL(blob)
   return { blobUrl, filename }
 }
+
+/** Trigger download from blob URL or URL (opens in new tab or starts download) */
+export function triggerDownload(url: string, filename?: string) {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename ?? ''
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}

@@ -1,5 +1,5 @@
 /**
- * Proxy routes: Piped, oEmbed, subtitles, Cobalt, GNews, FreeToGame.
+ * Proxy routes: Piped, oEmbed, subtitles, GNews, FreeToGame.
  * Mirrors Vite dev server proxies for production.
  */
 
@@ -112,30 +112,6 @@ export async function proxyRoutes(app: FastifyInstance) {
       return reply.status(res.status).header('Content-Type', contentType).send(body)
     } catch {
       return reply.status(502).send({ error: 'Subtitle fetch failed' })
-    }
-  })
-
-  // Cobalt: /api/cobalt (POST only)
-  const cobaltBase = config.cobalt.base
-  app.post('/cobalt', async (req: FastifyRequest, reply: FastifyReply) => {
-    try {
-      const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {})
-      const res = await fetch(cobaltBase.replace(/\/$/, '') + '/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0',
-          Origin: 'https://cobalt.tools',
-        },
-        body: body || '{}',
-        signal: AbortSignal.timeout(60000),
-      })
-      const contentType = res.headers.get('content-type') || 'application/json'
-      const data = Buffer.from(await res.arrayBuffer())
-      return reply.status(res.status).header('Content-Type', contentType).send(data)
-    } catch (e) {
-      return reply.status(502).send({ error: (e as Error).message })
     }
   })
 

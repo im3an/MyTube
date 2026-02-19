@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react'
-import { requestYtdlDownload } from '@/api/ytdl'
-import { triggerDownload } from '@/api/cobalt'
+import { requestYtdlDownload, triggerDownload } from '@/api/ytdl'
 import type { DownloadFormat, DownloadQuality } from '@/api/ytdl'
 
 const QUALITY_OPTIONS: Record<DownloadFormat, { value: DownloadQuality; label: string }[]> = {

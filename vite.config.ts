@@ -230,41 +230,6 @@ function pipedApiProxy(): Plugin {
         })
       })
 
-      // Cobalt API proxy (video/audio downloads)
-      const cobaltBase = process.env.COBALT_API_URL || process.env.VITE_COBALT_API_URL || 'https://api.cobalt.tools'
-      server.middlewares.use('/api/cobalt', async (req, res) => {
-        if (req.method !== 'POST') {
-          res.writeHead(405, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'Method not allowed' }))
-          return
-        }
-        let body = ''
-        req.on('data', (chunk) => { body += chunk })
-        req.on('end', async () => {
-          try {
-            const target = cobaltBase.replace(/\/$/, '') + '/'
-            const response = await fetch(target, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:131.0) Gecko/20100101 Firefox/131.0',
-                Origin: 'https://cobalt.tools',
-              },
-              body: body || '{}',
-              signal: AbortSignal.timeout(60000),
-            })
-            const contentType = response.headers.get('content-type') || 'application/json'
-            const data = Buffer.from(await response.arrayBuffer())
-            res.writeHead(response.status, { 'Content-Type': contentType })
-            res.end(data)
-          } catch (e) {
-            res.writeHead(502, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: (e as Error).message }))
-          }
-        })
-      })
-
       // GNews API proxy (requires GNEWS_API_KEY in env)
       const gnewsKey = process.env.GNEWS_API_KEY || process.env.VITE_GNEWS_API_KEY
       if (gnewsKey) {

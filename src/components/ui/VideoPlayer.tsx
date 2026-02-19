@@ -11,7 +11,6 @@ import {
   Loading01,
 } from '@untitledui/icons'
 import { cx } from '@/utils/cx'
-import { useCobaltStreamUrl } from '@/hooks/useCobaltStreamUrl'
 
 export interface VideoPlayerProps {
   videoId: string
@@ -47,12 +46,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   { videoId, title, streamUrl: directStreamUrl, hlsUrl, dashUrl, initialTime, onTimeUpdate, onTimeProgress, onEnded },
   ref
 ) {
-  const primaryStreamUrl = directStreamUrl ?? hlsUrl ?? dashUrl ?? null
-  const { streamUrl: cobaltStreamUrl, loading: cobaltLoading } = useCobaltStreamUrl(
-    videoId,
-    primaryStreamUrl
-  )
-  const effectiveUrl = primaryStreamUrl ?? cobaltStreamUrl ?? null
+  const effectiveUrl = directStreamUrl ?? hlsUrl ?? dashUrl ?? null
   const streamType: StreamType = directStreamUrl
     ? 'direct'
     : hlsUrl && effectiveUrl === hlsUrl
@@ -304,21 +298,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     return () => window.removeEventListener('keydown', handler)
   }, [togglePlay, toggleFullscreen, toggleMute, video, duration])
 
-  // No playable stream — show loading, then YouTube embed as fallback (or DASH defer)
+  // No playable stream — YouTube embed as fallback (or DASH defer)
   if (!effectiveUrl || streamType === 'dash') {
-    if (cobaltLoading) {
-      return (
-        <div
-          className="flex aspect-video w-full flex-col items-center justify-center overflow-hidden rounded-2xl bg-black"
-          aria-label={title ?? 'Video player'}
-        >
-          <Loading01 className="size-12 animate-spin text-white/60" />
-          <p className="mt-3 text-sm text-white/70">Loading stream…</p>
-        </div>
-      )
-    }
-
-    // Fallback: YouTube embed when Piped + Cobalt both fail (e.g. 500/400 from APIs)
     const embedParams = new URLSearchParams()
     if (initialTime != null && initialTime > 0) embedParams.set('start', String(Math.floor(initialTime)))
     const embedSrc = `https://www.youtube.com/embed/${videoId}${embedParams.toString() ? `?${embedParams}` : ''}`
