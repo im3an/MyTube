@@ -1,0 +1,13 @@
+# MyTube frontend deployment
+# Replace YOUR-RENDER-URL with your Render backend URL after deploying
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+  environment = { VITE_USE_BACKEND = "1" }
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://YOUR-RENDER-URL.onrender.com/api/:splat"
+  status = 200
+  force = true

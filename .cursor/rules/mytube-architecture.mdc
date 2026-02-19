@@ -1,0 +1,23 @@
+---
+description: MyTube data & API architecture — must follow for all data fetching, channel resolution, and routing
+alwaysApply: true
+---
+
+# MyTube Architecture
+
+See `docs/MASTER_ARCHITECTURE_REFACTOR.md` for full refactor instructions.
+
+## Non-negotiable rules
+
+1. **No direct API calls in components** — use hooks or service functions only
+2. **Never trust handles** — resolve @handle to UC ID via canonical resolver before API/routing
+3. **Every page: Loading → Error → Success** — never return null or blank
+4. **Param-driven queries** — refetch when route/query params change; use `enabled: !!param`
+5. **Single channel resolution path** — all channel identity via `resolveChannelIdentity` or `getChannel(ucId)`
+6. **Lazy-load streams** — fetch `/streams/:id` only on WatchPage, not homepage
+7. **Cache & deduplicate** — no duplicate in-flight requests for same logical resource
+8. **Retry/fallback** — all Piped calls must handle 500/timeout with retry or fallback UI
+
+## Target flow
+
+UI → Hooks → Services (youtube.ts, channelIdentity) → Piped Client → API

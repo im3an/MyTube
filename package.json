@@ -1,0 +1,47 @@
+{
+  "name": "mytube",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "node server/ytdl-server.mjs",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
+    "dev:all:backend": "concurrently \"npm run dev\" \"npm run dev:backend\"",
+    "build": "tsc -b && vite build",
+    "build:backend": "cd backend && npm run build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "deploy:check": "npm run build && npm run build:backend",
+    "deploy:migrate": "cd backend && npm run db:migrate",
+    "deploy": "./scripts/deploy.sh all"
+  },
+  "dependencies": {
+    "@internationalized/date": "^3.11.0",
+    "@react-aria/i18n": "^3.12.15",
+    "@react-stately/utils": "^3.11.0",
+    "@simplewebauthn/browser": "^13.2.2",
+    "@untitledui/icons": "^0.0.21",
+    "framer-motion": "^12.34.0",
+    "hls.js": "^1.6.15",
+    "react": "^18.3.1",
+    "react-aria": "^3.46.0",
+    "react-aria-components": "^1.15.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss-react-aria-components": "^2.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.1",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3"
+  }
+}
