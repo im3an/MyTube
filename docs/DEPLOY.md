@@ -44,7 +44,7 @@ DATABASE_URL="postgresql://..." npm run db:migrate
 5. Configure:
    - **Name:** `mytube-backend`
    - **Root Directory:** (leave empty)
-   - **Build Command:** `cd backend && npm install && npm run build`
+   - **Build Command:** `cd backend && npm install --include=dev && npm run build`
    - **Start Command:** `cd backend && npm run db:migrate && npm start`
    - **Instance Type:** Free
 

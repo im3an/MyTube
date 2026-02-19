@@ -7,7 +7,7 @@ services:
     runtime: node
     region: oregon
 
-    buildCommand: cd backend && npm install && npm run build
+    buildCommand: cd backend && npm install --include=dev && npm run build
     startCommand: cd backend && npm run db:migrate && npm start
 
     envVars:
