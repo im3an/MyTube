@@ -436,6 +436,9 @@ export async function getVideoMeta(
   return null
 }
 
+/** Public Piped instance for fallback when backend fails (500, timeout, etc.) */
+const PIPED_FALLBACK_BASE = 'https://pipedapi.kavin.rocks'
+
 /**
  * DANGEROUS: Full detail + playback streams. Hits Piped /streams/ — rate-limited, heavy.
  * Use ONLY on the Video Watch Page, never in lists or staggered loops.
@@ -444,7 +447,22 @@ export async function getVideoStreams(
   videoId: string,
 ): Promise<InvidiousVideoDetail | null> {
   if (USE_BACKEND) {
-    return backend.getVideo(videoId) as Promise<InvidiousVideoDetail | null>
+    const fromBackend = await backend.getVideo(videoId)
+    if (fromBackend) return fromBackend as InvidiousVideoDetail
+    // Fallback: backend returned null (500/timeout) — try public Piped directly
+    try {
+      const res = await fetch(`${PIPED_FALLBACK_BASE}/streams/${videoId}`, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as PipedStreamDetail
+        if (!('error' in (data as unknown as Record<string, unknown>))) {
+          return pipedDetailToVideoDetail(videoId, data)
+        }
+      }
+    } catch { /* fallback failed */ }
+    return null
   }
   const now = Date.now()
   const shouldTryPiped = !_pipedStreamsDown || now - _pipedStreamsLastCheck > PIPED_RETRY_MS

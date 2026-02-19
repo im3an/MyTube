@@ -48,15 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refetch])
 
   const register = useCallback(async (username: string) => {
-    const options = await authApi.registerOptions(username) as any
-    const attestation = await startRegistration(options)
+    const optionsJSON = await authApi.registerOptions(username) as any
+    const attestation = await startRegistration({ optionsJSON })
     const { user: u } = await authApi.registerVerify(username, attestation)
     setUser(u ?? null)
   }, [])
 
   const login = useCallback(async (username: string) => {
-    const options = await authApi.loginOptions(username) as any
-    const assertion = await startAuthentication(options)
+    const optionsJSON = await authApi.loginOptions(username) as any
+    const assertion = await startAuthentication({ optionsJSON })
     const { user: u } = await authApi.loginVerify(username, assertion)
     setUser(u ?? null)
   }, [])
