@@ -11,3 +11,9 @@
   to = "https://mytube-backend-mz1f.onrender.com/api/:splat"
   status = 200
   force = true
+
+# SPA fallback: serve index.html for client-side routes (e.g. /signin, /channel/xyz)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
