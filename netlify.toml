@@ -1,5 +1,5 @@
 # MyTube frontend deployment
-# Replace YOUR-RENDER-URL with your Render backend URL after deploying
+# Replace mytube-backend-mz1f with your Render backend URL after deploying
 
 [build]
   command = "npm run build"
@@ -8,6 +8,6 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://YOUR-RENDER-URL.onrender.com/api/:splat"
+  to = "https://mytube-backend-mz1f.onrender.com/api/:splat"
   status = 200
   force = true
