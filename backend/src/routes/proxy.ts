@@ -77,9 +77,25 @@ export async function proxyRoutes(app: FastifyInstance) {
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
       const contentType = res.headers.get('content-type') || 'application/json'
       const body = Buffer.from(await res.arrayBuffer())
-      return reply.status(res.status).header('Content-Type', contentType).send(body)
+      if (res.ok) {
+        return reply.status(res.status).header('Content-Type', contentType).send(body)
+      }
+      // YouTube returned error (500, 429, etc.) — return minimal stub so frontend can still render
+      const stub = {
+        title: 'Video',
+        author_name: 'Unknown',
+        author_url: `https://www.youtube.com/watch?v=${videoId}`,
+        thumbnail_url: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      }
+      return reply.status(200).header('Content-Type', 'application/json').send(JSON.stringify(stub))
     } catch {
-      return reply.status(502).send({ error: 'oEmbed fetch failed' })
+      const stub = {
+        title: 'Video',
+        author_name: 'Unknown',
+        author_url: `https://www.youtube.com/watch?v=${videoId}`,
+        thumbnail_url: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      }
+      return reply.status(200).header('Content-Type', 'application/json').send(JSON.stringify(stub))
     }
   })
 
