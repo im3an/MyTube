@@ -125,22 +125,23 @@ export async function proxyRoutes(app: FastifyInstance) {
 
   // GNews: /api/news/* (optional, requires GNEWS_API_KEY)
   const gnewsKey = config.gnews.apiKey
-  if (gnewsKey) {
-    app.get('/news/*', async (req: FastifyRequest<{ Params: { '*': string } }>, reply: FastifyReply) => {
-      const splat = req.params['*'] ?? ''
-      const apiPath = splat ? splat : ''
-      const qs = req.url.split('?')[1] ?? ''
-      const target = `https://gnews.io/api/v4/${apiPath}?${qs ? qs + '&' : ''}apikey=${encodeURIComponent(gnewsKey)}`
-      try {
-        const res = await fetch(target, { signal: AbortSignal.timeout(10000) })
-        const contentType = res.headers.get('content-type') || 'application/json'
-        const body = Buffer.from(await res.arrayBuffer())
-        return reply.status(res.status).header('Content-Type', contentType).send(body)
-      } catch (e) {
-        return reply.status(502).send({ error: (e as Error).message })
-      }
-    })
-  }
+  app.get('/news/*', async (req: FastifyRequest<{ Params: { '*': string } }>, reply: FastifyReply) => {
+    if (!gnewsKey) {
+      return reply.status(200).header('Content-Type', 'application/json').send({ articles: [] })
+    }
+    const splat = req.params['*'] ?? ''
+    const apiPath = splat ? splat : ''
+    const qs = req.url.split('?')[1] ?? ''
+    const target = `https://gnews.io/api/v4/${apiPath}?${qs ? qs + '&' : ''}apikey=${encodeURIComponent(gnewsKey)}`
+    try {
+      const res = await fetch(target, { signal: AbortSignal.timeout(10000) })
+      const contentType = res.headers.get('content-type') || 'application/json'
+      const body = Buffer.from(await res.arrayBuffer())
+      return reply.status(res.status).header('Content-Type', contentType).send(body)
+    } catch (e) {
+      return reply.status(502).send({ error: (e as Error).message })
+    }
+  })
 
   // FreeToGame: /api/freetogame/*
   app.get('/freetogame/*', async (req: FastifyRequest<{ Params: { '*': string } }>, reply: FastifyReply) => {
