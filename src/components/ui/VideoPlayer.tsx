@@ -8,7 +8,6 @@ import {
   VolumeX,
   Maximize01,
   Minimize01,
-  Loading01,
 } from '@untitledui/icons'
 import { cx } from '@/utils/cx'
 
