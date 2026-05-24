@@ -39,6 +39,7 @@ import { DownloadPage } from '@/pages/DownloadPage'
 import { SearchPage } from '@/pages/SearchPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { SignInPage } from '@/pages/SignInPage'
+import { NotificationsPage } from '@/pages/NotificationsPage'
 
 function App() {
   return (
@@ -56,6 +57,7 @@ function App() {
         <Route path="shorts" element={<ShortsPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="download" element={<DownloadPage />} />
         <Route path="category/:slug" element={<RedirectCategoryToSearch />} />
         <Route path="channel/:id" element={<ChannelPageWithKey />} />
