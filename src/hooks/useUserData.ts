@@ -357,6 +357,17 @@ export function useUserData() {
     })
   }, [])
 
+  const removeSearchFromHistory = useCallback((query: string) => {
+    setData((prev) => ({
+      ...prev,
+      searchHistory: prev.searchHistory.filter((e) => e.query !== query),
+    }))
+  }, [])
+
+  const clearSearchHistory = useCallback(() => {
+    setData((prev) => ({ ...prev, searchHistory: [] }))
+  }, [])
+
   const getPlaybackPosition = useCallback(
     (videoId: string): number | undefined => data.playbackPositions[videoId],
     [data.playbackPositions]
@@ -387,5 +398,7 @@ export function useUserData() {
     setPlaybackPosition,
     getPlaybackPosition,
     addSearchToHistory,
+    removeSearchFromHistory,
+    clearSearchHistory,
   }
 }
