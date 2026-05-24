@@ -1,5 +1,5 @@
 /**
- * Piped API client. Circuit breaker on repeated failures.
+ * Piped API client. Per-instance circuit breaker on repeated failures.
  */
 
 import { config } from '../config.js'
@@ -10,22 +10,37 @@ const PIPED_HEADERS = {
   Accept: 'application/json',
 }
 
-let circuitOpen = false
-let circuitOpenSince = 0
+interface CircuitState {
+  open: boolean
+  openedAt: number
+}
 
-function shouldTry(): boolean {
-  if (!circuitOpen) return true
-  if (Date.now() - circuitOpenSince > config.piped.circuitRetryMs) {
-    circuitOpen = false
+const instanceCircuits = new Map<string, CircuitState>()
+
+function getCircuit(instance: string): CircuitState {
+  let state = instanceCircuits.get(instance)
+  if (!state) {
+    state = { open: false, openedAt: 0 }
+    instanceCircuits.set(instance, state)
+  }
+  return state
+}
+
+function shouldTryInstance(instance: string): boolean {
+  const state = getCircuit(instance)
+  if (!state.open) return true
+  if (Date.now() - state.openedAt > config.piped.circuitRetryMs) {
+    state.open = false
     return true
   }
   return false
 }
 
-function markDown(): void {
-  circuitOpen = true
-  circuitOpenSince = Date.now()
-  logger.warn('Piped circuit open', { retryMs: config.piped.circuitRetryMs })
+function markInstanceDown(instance: string): void {
+  const state = getCircuit(instance)
+  state.open = true
+  state.openedAt = Date.now()
+  logger.warn('Piped instance circuit open', { instance, retryMs: config.piped.circuitRetryMs })
 }
 
 async function fetchFromInstance(
@@ -45,6 +60,9 @@ async function fetchFromInstance(
   if (ct.includes('text/html')) {
     throw new Error('Instance returned HTML')
   }
+  if (res.status === 429 || res.status === 500 || res.status === 503) {
+    throw new Error(`Instance returned ${res.status}`)
+  }
   return res
 }
 
@@ -52,9 +70,10 @@ export async function pipedFetch<T>(
   path: string,
   signal?: AbortSignal
 ): Promise<T | null> {
-  if (!shouldTry()) return null
+  const tryable = config.piped.instances.filter(shouldTryInstance)
+  if (tryable.length === 0) return null
 
-  for (const instance of config.piped.instances) {
+  for (const instance of tryable) {
     try {
       const res = await fetchFromInstance(instance, path, signal)
       if (res.ok) {
@@ -63,10 +82,10 @@ export async function pipedFetch<T>(
       }
     } catch (e) {
       logger.warn('Piped request failed', { instance, path: path.slice(0, 60), error: (e as Error).message })
+      markInstanceDown(instance)
     }
   }
 
-  markDown()
   return null
 }
 
