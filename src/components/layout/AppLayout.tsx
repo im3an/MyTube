@@ -1,8 +1,9 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { PageLoader } from '@/components/ui/PageLoader'
 
 const pageVariants = {
   initial: { opacity: 1, y: 0 },
@@ -65,7 +66,9 @@ export function AppLayout() {
               animate="animate"
               exit="exit"
             >
-              <Outlet />
+              <Suspense fallback={<PageLoader />}>
+                <Outlet />
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </div>

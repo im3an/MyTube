@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, memo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Avatar } from '@/components/base/avatar/avatar'
@@ -31,7 +31,7 @@ interface VideoCardProps {
   index?: number
 }
 
-export function VideoCard({
+function VideoCardBase({
   video,
   compact = false,
   showRemove = false,
@@ -92,6 +92,7 @@ export function VideoCard({
               alt=""
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
+              decoding="async"
             />
             {video.liveNow ? (
               <span className="absolute bottom-1 right-1 rounded border border-red-400/40 bg-red-500/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white backdrop-blur-sm">
@@ -193,6 +194,7 @@ export function VideoCard({
             alt=""
             className="h-full w-full object-cover"
             loading="lazy"
+            decoding="async"
           />
 
           {/* Cinematic overlay on hover */}
@@ -306,3 +308,5 @@ export function VideoCard({
     </div>
   )
 }
+
+export const VideoCard = memo(VideoCardBase)

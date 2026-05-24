@@ -346,4 +346,16 @@ export default {
       '@': resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-player': ['hls.js'],
+          'vendor-motion': ['framer-motion'],
+          'vendor-webauthn': ['@simplewebauthn/browser'],
+        },
+      },
+    },
+  },
 }
