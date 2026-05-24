@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useUserData } from '@/hooks/useUserData'
 import { useEffect, useState, useRef } from 'react'
 import { motion, useMotionValueEvent, useScroll } from 'framer-motion'
@@ -17,6 +17,15 @@ import { useTheme } from '@/hooks/useTheme'
 import { useAuth } from '@/hooks/useAuth'
 import { resolveAvatarUrl } from '@/components/settings/AvatarSelector'
 
+const PAGE_SEARCH_PLACEHOLDERS: Record<string, string> = {
+  '/': 'Search videos, channels…',
+  '/history': 'Search watch history…',
+  '/favorites': 'Search liked videos…',
+  '/watch-later': 'Search watch later…',
+  '/playlists': 'Search playlists…',
+  '/settings': 'Search settings…',
+}
+
 interface HeaderProps {
   onMenuClick?: () => void
 }
@@ -25,11 +34,13 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { theme, toggle } = useTheme()
   const { user } = useAuth()
   const { username: localUsername } = useUserData()
+  const location = useLocation()
   const displayName = user?.displayName ?? user?.username ?? localUsername
   const [commandOpen, setCommandOpen] = useState(false)
   const [visible, setVisible] = useState(true)
   const [scrolled, setScrolled] = useState(false)
   const lastScrollRef = useRef(0)
+  const searchPlaceholder = PAGE_SEARCH_PLACEHOLDERS[location.pathname] ?? 'Search…'
 
   const { scrollY } = useScroll()
 
@@ -100,10 +111,10 @@ export function Header({ onMenuClick }: HeaderProps) {
           onClick={() => setCommandOpen(true)}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
-          className="mx-auto flex h-10 w-full max-w-md items-center gap-2.5 rounded-xl border border-gray-200/40 bg-white/50 px-4 text-sm text-gray-400 backdrop-blur-sm transition-all duration-300 hover:border-gray-200/80 hover:bg-white/80 hover:shadow-sm dark:border-gray-800/40 dark:bg-gray-900/50 dark:text-gray-500 dark:hover:border-gray-700/60 dark:hover:bg-gray-900/70"
+          className="mx-auto flex h-10 w-full max-w-md items-center gap-2.5 rounded-xl border border-gray-200/40 bg-white/50 px-4 text-sm text-gray-400 backdrop-blur-sm transition-all duration-300 hover:border-gray-300/70 hover:bg-white/80 hover:shadow-sm hover:shadow-blue-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:border-blue-400/50 dark:border-gray-800/40 dark:bg-gray-900/50 dark:text-gray-500 dark:hover:border-gray-600/60 dark:hover:bg-gray-900/70 dark:hover:shadow-blue-400/5 dark:focus-visible:ring-blue-400/30 dark:focus-visible:border-blue-500/40"
         >
           <SearchMd className="size-4 shrink-0" />
-          <span className="flex-1 text-left truncate">Search...</span>
+          <span className="flex-1 text-left truncate">{searchPlaceholder}</span>
           <kbd className="hidden rounded-md border border-gray-200/60 bg-gray-50/80 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:border-gray-700/60 dark:bg-gray-800/80 dark:text-gray-500 sm:inline-block">
             ⌘K
           </kbd>

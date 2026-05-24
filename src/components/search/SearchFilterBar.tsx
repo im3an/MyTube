@@ -19,10 +19,12 @@ export type FilterOption =
   | 'shorts'
   | 'long'
 
+export type DurationOption = 'any' | 'short' | 'medium' | 'long-duration'
+
 const SORT_OPTIONS: { value: SortOption; label: string; icon: typeof Clock }[] = [
   { value: 'relevant', label: 'Relevant', icon: Film01 },
-  { value: 'recent', label: 'Recent', icon: Clock },
-  { value: 'popular', label: 'Popular', icon: TrendUp01 },
+  { value: 'recent', label: 'Upload date', icon: Clock },
+  { value: 'popular', label: 'View count', icon: TrendUp01 },
 ]
 
 const FILTER_OPTIONS: {
@@ -37,8 +39,16 @@ const FILTER_OPTIONS: {
   { value: 'long', label: 'Long', icon: Hourglass01 },
 ]
 
+const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
+  { value: 'any', label: 'Any duration' },
+  { value: 'short', label: 'Short (< 4 min)' },
+  { value: 'medium', label: 'Medium (4–20 min)' },
+  { value: 'long-duration', label: 'Long (> 20 min)' },
+]
+
 const SORT_PARAM = 'sort'
 const FILTER_PARAM = 'filter'
+const DURATION_PARAM = 'duration'
 
 export function useSearchFilters() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -47,6 +57,8 @@ export function useSearchFilters() {
     (searchParams.get(SORT_PARAM) as SortOption) || 'relevant'
   const filter =
     (searchParams.get(FILTER_PARAM) as FilterOption) || 'all'
+  const duration =
+    (searchParams.get(DURATION_PARAM) as DurationOption) || 'any'
 
   const setSort = (value: SortOption) => {
     setSearchParams(
@@ -72,49 +84,82 @@ export function useSearchFilters() {
     )
   }
 
-  return { sort, filter, setSort, setFilter }
+  const setDuration = (value: DurationOption) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value === 'any') next.delete(DURATION_PARAM)
+        else next.set(DURATION_PARAM, value)
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  return { sort, filter, duration, setSort, setFilter, setDuration }
 }
 
 interface SearchFilterBarProps {
   hasFavoriteChannels?: boolean
 }
 
+function FilterChip({
+  isSelected,
+  onClick,
+  layoutId,
+  children,
+}: {
+  isSelected: boolean
+  onClick: () => void
+  layoutId: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'relative flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all duration-200',
+        isSelected
+          ? 'text-white shadow-sm dark:text-gray-900'
+          : 'bg-white/60 text-gray-500 ring-1 ring-gray-200/50 backdrop-blur-sm hover:bg-white/90 hover:text-gray-900 hover:ring-gray-300/60 dark:bg-white/[0.04] dark:text-gray-400 dark:ring-gray-700/40 dark:hover:bg-white/[0.08] dark:hover:text-white'
+      )}
+    >
+      {isSelected && (
+        <motion.span
+          layoutId={layoutId}
+          className="absolute inset-0 rounded-full bg-gray-900 dark:bg-white"
+          style={{ zIndex: 0 }}
+          transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }}
+        />
+      )}
+      {children}
+    </button>
+  )
+}
+
 export function SearchFilterBar({ hasFavoriteChannels = false }: SearchFilterBarProps) {
-  const { sort, filter, setSort, setFilter } = useSearchFilters()
+  const { sort, filter, duration, setSort, setFilter, setDuration } = useSearchFilters()
 
   return (
     <div className="flex flex-col gap-3">
       {/* Sort */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
           Sort
         </span>
         <div className="flex flex-wrap gap-1.5">
           {SORT_OPTIONS.map((opt) => {
-            const isSelected = sort === opt.value
             const Icon = opt.icon
             return (
-              <button
+              <FilterChip
                 key={opt.value}
+                isSelected={sort === opt.value}
                 onClick={() => setSort(opt.value)}
-                className={cn(
-                  'relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-all duration-200',
-                  isSelected
-                    ? 'text-white shadow-sm dark:text-gray-900'
-                    : 'bg-white/60 text-gray-500 ring-1 ring-gray-200/50 backdrop-blur-sm hover:bg-white/90 hover:text-gray-900 hover:ring-gray-300/60 dark:bg-white/[0.04] dark:text-gray-400 dark:ring-gray-700/40 dark:hover:bg-white/[0.08] dark:hover:text-white'
-                )}
+                layoutId={`search-sort-${opt.value}`}
               >
-                {isSelected && (
-                  <motion.span
-                    layoutId={`search-sort-${opt.value}`}
-                    className="absolute inset-0 rounded-xl bg-gray-900 dark:bg-white"
-                    style={{ zIndex: 0 }}
-                    transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }}
-                  />
-                )}
                 <Icon className="relative z-10 size-3.5" />
                 <span className="relative z-10">{opt.label}</span>
-              </button>
+              </FilterChip>
             )
           })}
         </div>
@@ -122,38 +167,44 @@ export function SearchFilterBar({ hasFavoriteChannels = false }: SearchFilterBar
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
           Filter
         </span>
         <div className="flex flex-wrap gap-1.5">
           {FILTER_OPTIONS.map((opt) => {
             if (opt.value === 'from-my-channels' && !hasFavoriteChannels) return null
-            const isSelected = filter === opt.value
             const Icon = opt.icon
             return (
-              <button
+              <FilterChip
                 key={opt.value}
+                isSelected={filter === opt.value}
                 onClick={() => setFilter(opt.value)}
-                className={cn(
-                  'relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-all duration-200',
-                  isSelected
-                    ? 'text-white shadow-sm dark:text-gray-900'
-                    : 'bg-white/60 text-gray-500 ring-1 ring-gray-200/50 backdrop-blur-sm hover:bg-white/90 hover:text-gray-900 hover:ring-gray-300/60 dark:bg-white/[0.04] dark:text-gray-400 dark:ring-gray-700/40 dark:hover:bg-white/[0.08] dark:hover:text-white'
-                )}
+                layoutId={`search-filter-${opt.value}`}
               >
-                {isSelected && (
-                  <motion.span
-                    layoutId={`search-filter-${opt.value}`}
-                    className="absolute inset-0 rounded-xl bg-gray-900 dark:bg-white"
-                    style={{ zIndex: 0 }}
-                    transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }}
-                  />
-                )}
                 <Icon className="relative z-10 size-3.5" />
                 <span className="relative z-10">{opt.label}</span>
-              </button>
+              </FilterChip>
             )
           })}
+        </div>
+      </div>
+
+      {/* Duration */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          Duration
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {DURATION_OPTIONS.map((opt) => (
+            <FilterChip
+              key={opt.value}
+              isSelected={duration === opt.value}
+              onClick={() => setDuration(opt.value)}
+              layoutId={`search-duration-${opt.value}`}
+            >
+              <span className="relative z-10">{opt.label}</span>
+            </FilterChip>
+          ))}
         </div>
       </div>
     </div>

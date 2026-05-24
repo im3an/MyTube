@@ -15,7 +15,7 @@ import { resolveChannelIdentity } from '@/services/channelService'
 import { isCanonicalChannelId } from '@/api/youtube'
 import { SearchMd, Users01 } from '@untitledui/icons'
 import type { AppVideo } from '@/hooks/useYouTube'
-import type { FilterOption, SortOption } from '@/components/search/SearchFilterBar'
+import type { FilterOption, SortOption, DurationOption } from '@/components/search/SearchFilterBar'
 
 function SkeletonCard() {
   return (
@@ -48,6 +48,7 @@ function applyFiltersAndSort(
   videos: AppVideo[],
   sort: SortOption,
   filter: FilterOption,
+  duration: DurationOption,
   favoriteChannelIds: string[]
 ): AppVideo[] {
   let result = [...videos]
@@ -81,6 +82,23 @@ function applyFiltersAndSort(
       break
   }
 
+  // Duration filter
+  switch (duration) {
+    case 'short':
+      result = result.filter((v) => v.lengthSeconds > 0 && v.lengthSeconds < 4 * 60 && !v.liveNow)
+      break
+    case 'medium':
+      result = result.filter(
+        (v) => v.lengthSeconds >= 4 * 60 && v.lengthSeconds <= 20 * 60
+      )
+      break
+    case 'long-duration':
+      result = result.filter((v) => v.lengthSeconds > 20 * 60)
+      break
+    default:
+      break
+  }
+
   // Sort
   switch (sort) {
     case 'recent':
@@ -101,7 +119,7 @@ export function SearchPage() {
   const [searchParams] = useSearchParams()
   const query = searchParams.get('q') || ''
   const { region } = useRegionPreference()
-  const { sort, filter } = useSearchFilters()
+  const { sort, filter, duration } = useSearchFilters()
   const { favoriteCreators, addSearchToHistory } = useUserData()
 
   // Track search history for recommendation intent scoring
@@ -143,8 +161,8 @@ export function SearchPage() {
   }, [videos, filter, favoriteChannelIds.length])
 
   const filteredVideos = useMemo(
-    () => applyFiltersAndSort(videos, sort, filter, favoriteChannelIds),
-    [videos, sort, filter, favoriteChannelIds, cacheVersion]
+    () => applyFiltersAndSort(videos, sort, filter, duration, favoriteChannelIds),
+    [videos, sort, filter, duration, favoriteChannelIds, cacheVersion]
   )
 
   // Intersection observer for infinite scroll

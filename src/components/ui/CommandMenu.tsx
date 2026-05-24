@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   SearchMd,
@@ -14,6 +14,12 @@ import {
   Moon01,
   Trash01,
   Settings01,
+  XClose,
+  TrendUp01,
+  MusicNote01,
+  GamingPad01,
+  Trophy01,
+  Announcement02,
 } from '@untitledui/icons'
 import { useSearch, useSearchChannels, useVideosByIds } from '@/hooks/useYouTube'
 import { useUserData } from '@/hooks/useUserData'
@@ -40,6 +46,23 @@ const PAGES = [
 const QUICK_CATEGORIES = categories.filter(
   (c) => c.slug !== 'all'
 ).slice(0, 5)
+
+const TRENDING_CHIPS = [
+  { label: 'Trending', slug: 'trending', icon: TrendUp01 },
+  { label: 'Music', slug: 'music', icon: MusicNote01 },
+  { label: 'Gaming', slug: 'gaming', icon: GamingPad01 },
+  { label: 'Sports', slug: 'sports', icon: Trophy01 },
+  { label: 'News', slug: 'news', icon: Announcement02 },
+] as const
+
+const PAGE_PLACEHOLDERS: Record<string, string> = {
+  '/': 'Search videos, channels…',
+  '/history': 'Search watch history…',
+  '/favorites': 'Search liked videos…',
+  '/watch-later': 'Search watch later…',
+  '/playlists': 'Search playlists…',
+  '/settings': 'Search settings…',
+}
 
 /* ─── Types ────────────────────────────────────────────────── */
 
@@ -105,6 +128,7 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const { theme, toggle: toggleTheme } = useTheme()
   const { region } = useRegionPreference()
   const { videos: searchVideos, loading } = useSearch(query.trim() || null)
@@ -112,9 +136,11 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
     query.trim().length > 0 ? query.trim() : null,
     region
   )
-  const { history, clearHistory, searchHistory, addSearchToHistory } = useUserData()
+  const { history, clearHistory, searchHistory, addSearchToHistory, removeSearchFromHistory, clearSearchHistory } = useUserData()
   const recentIds = history.slice(0, 5).map((h) => h.videoId)
   const { videos: recentVideos } = useVideosByIds(recentIds)
+
+  const contextualPlaceholder = PAGE_PLACEHOLDERS[location.pathname] ?? 'Search…'
 
   const trimmedQuery = query.trim().toLowerCase()
   const hasQuery = trimmedQuery.length > 0
@@ -417,13 +443,105 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
     if (searchHistoryItems.length > 0) {
       const items = searchHistoryItems.map((item) => {
         const idx = nextIndex()
-        return renderItem(item, idx)
+        const isHighlighted = idx === highlightedIndex
+        const Icon = item.icon
+        return (
+          <div
+            key={item.id}
+            className={cx(
+              'group flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-all duration-150',
+              isHighlighted
+                ? 'bg-gray-100/80 dark:bg-white/[0.06]'
+                : 'hover:bg-gray-50/80 dark:hover:bg-white/[0.03]'
+            )}
+          >
+            <button
+              data-index={idx}
+              type="button"
+              role="option"
+              aria-selected={isHighlighted}
+              onClick={() => item.onAction?.()}
+              className="flex flex-1 items-center gap-3 min-w-0 text-left"
+            >
+              {Icon && (
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100/80 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
+                  <Icon className="size-4" />
+                </span>
+              )}
+              <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
+                {item.label}
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove "${item.label}" from history`}
+              onClick={(e) => {
+                e.stopPropagation()
+                removeSearchFromHistory(item.label)
+              }}
+              className="ml-auto shrink-0 rounded-md p-1 text-gray-300 opacity-0 transition-opacity duration-150 hover:text-gray-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:text-gray-400"
+            >
+              <XClose className="size-3.5" />
+            </button>
+          </div>
+        )
       })
       sections.push(
-        <div key="search-history">
-          <SectionLabel>Recent searches</SectionLabel>
+        <motion.div
+          key="search-history"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          <div className="flex items-center justify-between px-2 pb-1 pt-4 first:pt-2">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              Recent searches
+            </span>
+            <button
+              type="button"
+              onClick={() => clearSearchHistory()}
+              className="text-[10px] font-medium text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            >
+              Clear all
+            </button>
+          </div>
           {items}
-        </div>
+        </motion.div>
+      )
+    }
+
+    // Trending category chips (idle only)
+    if (!hasQuery) {
+      sections.push(
+        <motion.div
+          key="trending-chips"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18, ease: 'easeOut', delay: 0.04 }}
+        >
+          <SectionLabel>Trending</SectionLabel>
+          <div className="flex flex-wrap gap-2 px-1 pb-1">
+            {TRENDING_CHIPS.map((chip) => {
+              const Icon = chip.icon
+              return (
+                <button
+                  key={chip.slug}
+                  type="button"
+                  onClick={() => {
+                    navigate(`/?category=${chip.slug}`)
+                    onClose()
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-gray-200/60 bg-white/70 px-3 py-1.5 text-[12px] font-medium text-gray-600 backdrop-blur-sm transition-all duration-150 hover:border-gray-300/80 hover:bg-white/90 hover:text-gray-900 dark:border-gray-700/50 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:border-gray-600/60 dark:hover:bg-white/[0.09] dark:hover:text-gray-200"
+                >
+                  <Icon className="size-3.5" />
+                  {chip.label}
+                </button>
+              )
+            })}
+          </div>
+        </motion.div>
       )
     }
 
@@ -598,10 +716,23 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search..."
+                    placeholder={contextualPlaceholder}
                     autoFocus
                     className="flex-1 bg-transparent text-[15px] text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
                   />
+                  {query.length > 0 && (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      onClick={() => {
+                        setQuery('')
+                        inputRef.current?.focus()
+                      }}
+                      className="rounded-md p-0.5 text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                    >
+                      <XClose className="size-4" />
+                    </button>
+                  )}
                   <kbd
                     onClick={onClose}
                     className="cursor-pointer rounded-md border border-gray-200/40 bg-gray-50/60 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:border-gray-700/40 dark:bg-gray-800/60 dark:text-gray-500"
