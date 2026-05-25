@@ -347,6 +347,7 @@ export default {
     },
   },
   build: {
+    chunkSizeWarningLimit: 600, // hls.js vendor chunk is ~530 kB minified, expected
     rollupOptions: {
       output: {
         manualChunks: {
