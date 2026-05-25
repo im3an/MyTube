@@ -20,6 +20,7 @@ import { useChannelAvatar } from '@/hooks/useChannelAvatar'
 import { useResolvedChannelId } from '@/hooks/useResolvedChannelId'
 import { useUserData } from '@/hooks/useUserData'
 import { cn } from '@/lib/utils'
+import { sanitizeDescription } from '@/lib/sanitize'
 
 // ─── Timestamp parsing ─────────────────────────────────────────
 
@@ -346,7 +347,7 @@ export function VideoInfo({
                   '[&_a]:text-blue-500 [&_a]:no-underline [&_a:hover]:underline',
                   !descExpanded && isLongDesc ? 'line-clamp-5' : 'whitespace-pre-wrap',
                 )}
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
+                dangerouslySetInnerHTML={{ __html: sanitizeDescription(htmlContent) }}
               />
             </motion.div>
           </AnimatePresence>

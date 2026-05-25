@@ -17,28 +17,9 @@ import { Button } from '@/components/base/buttons/button'
 import { cn } from '@/lib/utils'
 import { getCommentReplies, formatViews } from '@/api/youtube'
 import type { InvidiousComment } from '@/api/youtube'
+import { sanitizeComment } from '@/lib/sanitize'
 
 export type { InvidiousComment as Comment }
-
-/**
- * Sanitize comment HTML — allow only safe tags, strip event handlers and
- * all other attributes (except href on anchors).
- * No external dependencies.
- */
-function sanitizeComment(html: string): string {
-  let sanitized = html.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-  sanitized = sanitized.replace(/\s+(?:style|class|id|data-\w+)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-  sanitized = sanitized.replace(/<a\s+([^>]*)>/gi, (_match, attrs: string) => {
-    const hrefMatch = attrs.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))/i)
-    if (!hrefMatch) return '<a>'
-    const hrefValue = hrefMatch[1] ?? hrefMatch[2] ?? hrefMatch[3] ?? ''
-    // Block javascript: and data: URIs — only allow http/https/relative paths
-    const safe = /^(?:https?:\/\/|\/)/i.test(hrefValue) ? hrefValue : '#'
-    return `<a href="${safe}" target="_blank" rel="noopener noreferrer">`
-  })
-  sanitized = sanitized.replace(/<\/?(?!\/?(a|b|i|br|p)\b)[^>]*>/gi, '')
-  return sanitized
-}
 
 function decodeEntities(text: string): string {
   return text

@@ -6,9 +6,26 @@ import { query } from '../db/client.js'
 import { NotFoundError } from '../utils/errors.js'
 
 const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/
+const CHANNEL_ID_RE = /^[A-Za-z0-9_@.-]{3,64}$/
 
 function isValidVideoId(id: string): boolean {
   return VIDEO_ID_RE.test(id)
+}
+
+/** Strip HTML tags and truncate to maxLen chars */
+function stripTags(s: string, maxLen: number): string {
+  return s.replace(/<[^>]+>/g, '').slice(0, maxLen)
+}
+
+/** Sanitize a creator entry: validate channel ID, strip HTML from name, validate avatar URL */
+function sanitizeCreator(c: { id: string; name: string; avatar?: string }): { id: string; name: string; avatar?: string } | null {
+  if (!CHANNEL_ID_RE.test(c.id ?? '')) return null
+  const name = stripTags(c.name ?? '', 100).trim()
+  if (!name) return null
+  const avatar = c.avatar && (c.avatar.startsWith('https://') || c.avatar.startsWith('/'))
+    ? c.avatar.slice(0, 500)
+    : undefined
+  return { id: c.id, name, avatar }
 }
 
 export interface UserDataPayload {
@@ -118,7 +135,9 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
     }
     if (data.favoriteCreators !== undefined) {
       await client.query('DELETE FROM user_favorite_creators WHERE user_id = $1', [userId])
-      for (const c of data.favoriteCreators) {
+      for (const raw of data.favoriteCreators) {
+        const c = sanitizeCreator(raw)
+        if (!c) continue
         await client.query('INSERT INTO user_favorite_creators (user_id, channel_id, name, avatar) VALUES ($1, $2, $3, $4)', [userId, c.id, c.name, c.avatar ?? null])
       }
     }
@@ -133,7 +152,9 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
       await client.query('DELETE FROM user_playlist_videos WHERE playlist_id IN (SELECT id FROM user_playlists WHERE user_id = $1)', [userId])
       await client.query('DELETE FROM user_playlists WHERE user_id = $1', [userId])
       for (const p of data.playlists) {
-        await client.query('INSERT INTO user_playlists (id, user_id, name, description) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [p.id, userId, p.name, p.description])
+        const safeName = stripTags(p.name ?? '', 100).trim() || 'Untitled'
+        const safeDesc = stripTags(p.description ?? '', 500)
+        await client.query('INSERT INTO user_playlists (id, user_id, name, description) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [p.id, userId, safeName, safeDesc])
         const ids = p.videoIds ?? []
         for (let i = 0; i < ids.length; i++) {
           if (!isValidVideoId(ids[i])) continue
@@ -144,7 +165,9 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
     if (data.searchHistory !== undefined) {
       await client.query('DELETE FROM user_search_history WHERE user_id = $1', [userId])
       for (const s of data.searchHistory.slice(0, 20)) {
-        await client.query('INSERT INTO user_search_history (user_id, query, searched_at) VALUES ($1, $2, $3)', [userId, s.query, s.searchedAt])
+        const safeQuery = (s.query ?? '').slice(0, 200).trim()
+        if (!safeQuery) continue
+        await client.query('INSERT INTO user_search_history (user_id, query, searched_at) VALUES ($1, $2, $3)', [userId, safeQuery, s.searchedAt])
       }
     }
     if (data.playbackPositions !== undefined) {

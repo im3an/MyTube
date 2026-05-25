@@ -9,6 +9,7 @@ import { useResolvedChannelId } from '@/hooks/useResolvedChannelId'
 import { useUserData } from '@/hooks/useUserData'
 import { formatViews, isCanonicalChannelId } from '@/api/youtube'
 import { cn } from '@/lib/utils'
+import { sanitizeLinkifiedText } from '@/lib/sanitize'
 import {
   Bell01,
   BellRinging01,
@@ -49,13 +50,7 @@ function sortVideos(videos: AppVideo[], order: SortOrder): AppVideo[] {
   }
 }
 
-function linkifyText(text: string): string {
-  return text.replace(
-    /(https?:\/\/[^\s]+)/g,
-    (url) =>
-      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline break-all">${url}</a>`,
-  )
-}
+// linkifyText replaced by sanitizeLinkifiedText from @/lib/sanitize (XSS-safe)
 
 function LoadingSkeleton() {
   return (
@@ -408,7 +403,7 @@ export function ChannelPage() {
                   {channel.description ? (
                     <p
                       className="whitespace-pre-wrap text-sm leading-relaxed text-gray-600 dark:text-gray-400"
-                      dangerouslySetInnerHTML={{ __html: linkifyText(channel.description) }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeLinkifiedText(channel.description) }}
                     />
                   ) : (
                     <p className="text-sm text-gray-400 dark:text-gray-500">

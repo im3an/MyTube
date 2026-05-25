@@ -5,11 +5,18 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import * as authService from '../services/auth.service.js'
 import * as authQueries from '../db/queries/auth.js'
+import { z, parseBody, usernameSchema, displayNameSchema, avatarUrlSchema } from '../lib/validate.js'
+
+const registerOptionsSchema = z.object({ username: usernameSchema })
+const verifySchema = z.object({ username: usernameSchema, response: z.record(z.string(), z.unknown()) })
+const loginOptionsSchema = z.object({ username: usernameSchema })
+const loginVerifySchema = z.object({ username: usernameSchema, response: z.record(z.string(), z.unknown()) })
+const updateProfileSchema = z.object({ displayName: displayNameSchema, avatarUrl: avatarUrlSchema })
 
 export async function authRoutes(app: FastifyInstance) {
   /** POST /auth/register/options — get registration options */
   app.post<{ Body: { username: string } }>('/register/options', { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (req, reply) => {
-    const { username } = req.body ?? {}
+    const { username } = parseBody(registerOptionsSchema, req.body)
     try {
     const { options, userId } = await authService.getRegistrationOptions(username)
     ;(req as any).session?.set('pendingUserId', userId)
@@ -33,7 +40,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   /** POST /auth/register/verify — verify registration, create session */
   app.post<{ Body: { username: string; response: unknown } }>('/register/verify', { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (req, reply) => {
-    const { username, response } = req.body ?? {}
+    const { username, response } = parseBody(verifySchema, req.body)
     const { userId } = await authService.verifyRegistration(username, response as any)
     ;(req as any).session?.set('userId', userId)
     ;(req as any).session?.set('pendingUserId', undefined)
@@ -43,14 +50,14 @@ export async function authRoutes(app: FastifyInstance) {
 
   /** POST /auth/login/options — get authentication options */
   app.post<{ Body: { username: string } }>('/login/options', { config: { rateLimit: { max: 10, timeWindow: 60_000 } } }, async (req, reply) => {
-    const { username } = req.body ?? {}
+    const { username } = parseBody(loginOptionsSchema, req.body)
     const options = await authService.getAuthenticationOptions(username)
     return reply.send(options)
   })
 
   /** POST /auth/login/verify — verify authentication, create session */
   app.post<{ Body: { username: string; response: unknown } }>('/login/verify', { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (req, reply) => {
-    const { username, response } = req.body ?? {}
+    const { username, response } = parseBody(loginVerifySchema, req.body)
     const { userId } = await authService.verifyAuthentication(username, response as any)
     ;(req as any).session?.set('userId', userId)
     const user = await authQueries.getUserById(userId)
@@ -67,7 +74,7 @@ export async function authRoutes(app: FastifyInstance) {
   app.patch<{ Body: { displayName?: string; avatarUrl?: string } }>('/me', async (req, reply) => {
     const userId = (req as any).session?.get('userId') as string | undefined
     if (!userId) return reply.status(401).send({ error: 'Unauthorized' })
-    const { displayName, avatarUrl } = req.body ?? {}
+    const { displayName, avatarUrl } = parseBody(updateProfileSchema, req.body)
     await authQueries.updateUser(userId, {
       ...(displayName !== undefined && { display_name: displayName }),
       ...(avatarUrl !== undefined && { avatar_url: avatarUrl }),

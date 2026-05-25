@@ -1,5 +1,5 @@
 /**
- * Entry: Fastify app, CORS, rate limit, error handler, routes.
+ * Entry: Fastify app, CORS, rate limit, security headers, compression, routes.
  */
 
 import { createHash, randomUUID } from 'crypto'
@@ -7,6 +7,8 @@ import { createRequire } from 'module'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
+import helmet from '@fastify/helmet'
+import compress from '@fastify/compress'
 import { config } from './config.js'
 
 const require = createRequire(import.meta.url)
@@ -49,10 +51,22 @@ async function build() {
     cookie: {
       path: '/',
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: config.nodeEnv === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30, // 30 days
     },
+  })
+
+  // Security headers (CSP disabled — Netlify/nginx sets it on the frontend; backend is API-only)
+  await app.register(helmet, {
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+
+  // Response compression
+  await app.register(compress, {
+    threshold: 1024,
+    encodings: ['gzip', 'deflate'],
   })
 
   await app.register(rateLimit, {
