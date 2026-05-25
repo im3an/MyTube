@@ -40,7 +40,7 @@ const libraryNav = [
 ]
 
 const moreNav = [
-  { to: '/category/trending', icon: TrendUp01, label: 'Trending' },
+  { to: '/trending', icon: TrendUp01, label: 'Trending' },
   { to: '/premium', icon: Play, label: 'Premium' },
   { to: '/gaming', icon: Tv01, label: 'Gaming' },
   { to: '/news', icon: Announcement02, label: 'News' },
