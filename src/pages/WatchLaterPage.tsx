@@ -7,7 +7,6 @@ import { useVideosByIds } from '@/hooks/useYouTube'
 import type { AppVideo } from '@/hooks/useYouTube'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { VideoCardSkeleton } from '@/components/video/VideoCardSkeleton'
 import {
   Bookmark,
   Trash01,
@@ -15,7 +14,7 @@ import {
   Square,
   X,
   Play,
-  SortDesc,
+  FilterLines,
   Clock,
 } from '@untitledui/icons'
 import { cn } from '@/lib/utils'
@@ -152,7 +151,7 @@ export function WatchLaterPage() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Sort */}
             <div className="flex items-center gap-1 rounded-xl border border-gray-200/60 bg-white/80 px-2 py-1 dark:border-gray-700/60 dark:bg-gray-900/50">
-              <SortDesc className="size-4 text-gray-400 dark:text-gray-500" />
+              <FilterLines className="size-4 text-gray-400 dark:text-gray-500" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
