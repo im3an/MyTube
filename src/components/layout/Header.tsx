@@ -20,15 +20,6 @@ import { resolveAvatarUrl } from '@/components/settings/AvatarSelector'
 import { useNotifications } from '@/hooks/useNotifications'
 import { cn, formatRelativeTime } from '@/lib/utils'
 
-const PAGE_SEARCH_PLACEHOLDERS: Record<string, string> = {
-  '/': 'Search videos, channels…',
-  '/history': 'Search watch history…',
-  '/favorites': 'Search liked videos…',
-  '/watch-later': 'Search watch later…',
-  '/playlists': 'Search playlists…',
-  '/settings': 'Search settings…',
-}
-
 interface HeaderProps {
   onMenuClick?: () => void
 }
@@ -37,7 +28,6 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { theme, toggle } = useTheme()
   const { user } = useAuth()
   const { username: localUsername } = useUserData()
-  const location = useLocation()
   const displayName = user?.displayName ?? user?.username ?? localUsername
   const [commandOpen, setCommandOpen] = useState(false)
   const [visible, setVisible] = useState(true)

@@ -46,13 +46,6 @@ const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
   { value: 'long', label: 'Long (> 20 min)' },
 ]
 
-const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
-  { value: 'any', label: 'Any duration' },
-  { value: 'short', label: 'Short (< 4 min)' },
-  { value: 'medium', label: 'Medium (4–20 min)' },
-  { value: 'long-duration', label: 'Long (> 20 min)' },
-]
-
 const SORT_PARAM = 'sort'
 const FILTER_PARAM = 'filter'
 const DURATION_PARAM = 'duration'

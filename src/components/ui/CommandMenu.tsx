@@ -48,14 +48,6 @@ const QUICK_CATEGORIES = categories.filter(
   (c) => c.slug !== 'all'
 ).slice(0, 5)
 
-const TRENDING_CHIPS = [
-  { label: 'Trending', slug: 'trending', icon: TrendUp01 },
-  { label: 'Music', slug: 'music', icon: MusicNote01 },
-  { label: 'Gaming', slug: 'gaming', icon: GamingPad01 },
-  { label: 'Sports', slug: 'sports', icon: Trophy01 },
-  { label: 'News', slug: 'news', icon: Announcement02 },
-] as const
-
 const PAGE_PLACEHOLDERS: Record<string, string> = {
   '/': 'Search videos, channels…',
   '/history': 'Search watch history…',
