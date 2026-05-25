@@ -16,7 +16,7 @@ import {
   Settings01,
   XClose,
 } from '@untitledui/icons'
-import { useSearch, useSearchChannels, useVideosByIds } from '@/hooks/useYouTube'
+import { useSearch, useSearchChannels, useSearchSuggestions, useVideosByIds } from '@/hooks/useYouTube'
 import { useUserData } from '@/hooks/useUserData'
 import { useTheme } from '@/hooks/useTheme'
 import { useRegionPreference } from '@/hooks/useRegionPreference'
@@ -60,7 +60,7 @@ const PAGE_PLACEHOLDERS: Record<string, string> = {
 /* ─── Types ────────────────────────────────────────────────── */
 
 interface CommandItem {
-  type: 'action' | 'page' | 'category' | 'video' | 'channel' | 'search-history'
+  type: 'action' | 'page' | 'category' | 'video' | 'channel' | 'search-history' | 'suggestion'
   id: string
   label: string
   href?: string
@@ -129,6 +129,7 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
     query.trim().length > 0 ? query.trim() : null,
     region
   )
+  const suggestions = useSearchSuggestions(query.trim())
   const { history, clearHistory, searchHistory, addSearchToHistory, removeSearchEntry, clearSearchHistory } = useUserData()
   const recentIds = history.slice(0, 5).map((h) => h.videoId)
   const { videos: recentVideos } = useVideosByIds(recentIds)
@@ -273,10 +274,32 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
     }))
   }, [searchHistory, hasQuery, trimmedQuery, goToSearch])
 
+  // Set of queries already in search history for de-duplication in suggestions
+  const searchHistorySet = useMemo(
+    () => new Set(searchHistory.map((e) => e.query.toLowerCase())),
+    [searchHistory]
+  )
+
+  // Live suggestions from Piped (only when a query is active)
+  const suggestionItems: CommandItem[] = useMemo(() => {
+    if (!hasQuery || suggestions.length === 0) return []
+    // Filter out suggestions already in history (they'll show there already)
+    return suggestions
+      .filter((s) => !searchHistorySet.has(s.toLowerCase()))
+      .slice(0, 6)
+      .map((s) => ({
+        type: 'suggestion' as const,
+        id: `suggestion-${s}`,
+        label: s,
+        icon: SearchMd,
+        onAction: () => goToSearch(s),
+      }))
+  }, [hasQuery, suggestions, searchHistorySet, goToSearch])
+
   // Assemble all items in section order
   const allItems = useMemo(
-    () => [...searchHistoryItems, ...quickActions, ...filteredPages, ...categoryItems, ...channelItems, ...videoItems],
-    [searchHistoryItems, quickActions, filteredPages, categoryItems, channelItems, videoItems]
+    () => [...suggestionItems, ...searchHistoryItems, ...quickActions, ...filteredPages, ...categoryItems, ...channelItems, ...videoItems],
+    [suggestionItems, searchHistoryItems, quickActions, filteredPages, categoryItems, channelItems, videoItems]
   )
 
   /* ── Handlers ─────────────────────────────────── */
@@ -431,6 +454,55 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
   const renderSections = () => {
     globalIdx = 0
     const sections: React.ReactNode[] = []
+
+    // Live suggestions (shown above history when query is active)
+    if (suggestionItems.length > 0) {
+      const items = suggestionItems.map((item) => {
+        const idx = nextIndex()
+        const isHighlighted = idx === highlightedIndex
+        const Icon = item.icon
+        return (
+          <button
+            key={item.id}
+            data-index={idx}
+            type="button"
+            role="option"
+            aria-selected={isHighlighted}
+            onClick={() => item.onAction?.()}
+            className={cn(
+              'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all duration-150',
+              isHighlighted
+                ? 'bg-gray-100/80 dark:bg-white/[0.06]'
+                : 'hover:bg-gray-50/80 dark:hover:bg-white/[0.03]'
+            )}
+          >
+            {Icon && (
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100/80 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
+                <Icon className="size-4" />
+              </span>
+            )}
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-700 dark:text-gray-300">
+              {item.label}
+            </span>
+            <span className="shrink-0 text-[11px] font-medium text-gray-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:text-gray-500">
+              Search
+            </span>
+          </button>
+        )
+      })
+      sections.push(
+        <motion.div
+          key="suggestions"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          <SectionLabel>Suggestions</SectionLabel>
+          {items}
+        </motion.div>
+      )
+    }
 
     // Search history
     if (searchHistoryItems.length > 0) {
@@ -632,7 +704,7 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
     }
 
     // Empty state
-    if (hasQuery && !loading && searchVideos.length === 0 && filteredPages.length === 0 && categoryItems.length === 0 && channelItems.length === 0) {
+    if (hasQuery && !loading && searchVideos.length === 0 && filteredPages.length === 0 && categoryItems.length === 0 && channelItems.length === 0 && suggestionItems.length === 0) {
       sections.push(
         <div key="empty" className="py-10 text-center">
           <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/[0.04]">
