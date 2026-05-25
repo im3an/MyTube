@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   SearchMd,
@@ -47,6 +47,23 @@ const TRENDING_SHORTCUTS = TRENDING_SHORTCUT_SLUGS.map(
 const QUICK_CATEGORIES = categories.filter(
   (c) => c.slug !== 'all'
 ).slice(0, 5)
+
+const TRENDING_CHIPS = [
+  { label: 'Trending', slug: 'trending', icon: TrendUp01 },
+  { label: 'Music', slug: 'music', icon: MusicNote01 },
+  { label: 'Gaming', slug: 'gaming', icon: GamingPad01 },
+  { label: 'Sports', slug: 'sports', icon: Trophy01 },
+  { label: 'News', slug: 'news', icon: Announcement02 },
+] as const
+
+const PAGE_PLACEHOLDERS: Record<string, string> = {
+  '/': 'Search videos, channels…',
+  '/history': 'Search watch history…',
+  '/favorites': 'Search liked videos…',
+  '/watch-later': 'Search watch later…',
+  '/playlists': 'Search playlists…',
+  '/settings': 'Search settings…',
+}
 
 /* ─── Types ────────────────────────────────────────────────── */
 
@@ -112,6 +129,7 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const { theme, toggle: toggleTheme } = useTheme()
   const { region } = useRegionPreference()
   const { videos: searchVideos, loading } = useSearch(query.trim() || null)
@@ -122,6 +140,8 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
   const { history, clearHistory, searchHistory, addSearchToHistory, removeSearchEntry, clearSearchHistory } = useUserData()
   const recentIds = history.slice(0, 5).map((h) => h.videoId)
   const { videos: recentVideos } = useVideosByIds(recentIds)
+
+  const contextualPlaceholder = PAGE_PLACEHOLDERS[location.pathname] ?? 'Search…'
 
   const trimmedQuery = query.trim().toLowerCase()
   const hasQuery = trimmedQuery.length > 0
@@ -669,7 +689,7 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search..."
+                    placeholder={contextualPlaceholder}
                     autoFocus
                     className="flex-1 bg-transparent text-[15px] text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
                   />

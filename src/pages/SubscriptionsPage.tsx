@@ -6,6 +6,7 @@ import { Avatar } from '@/components/base/avatar/avatar'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { VideoCard } from '@/components/video/VideoCard'
 import { useUserData } from '@/hooks/useUserData'
+import { useSubscriptionFeed } from '@/hooks/useSubscriptionFeed'
 import { useChannelAvatar } from '@/hooks/useChannelAvatar'
 import { useSubscriptionFeed } from '@/hooks/useSubscriptionFeed'
 import { toAppVideo } from '@/api/youtube'
@@ -295,6 +296,68 @@ function EmptyState() {
           </Link>
         ))}
       </div>
+
+      {loading && rawVideos.length === 0 ? (
+        <FeedSkeleton />
+      ) : error && rawVideos.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500">{error}</p>
+          <button
+            onClick={refresh}
+            className="mt-3 text-sm font-medium text-gray-700 underline hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+          >
+            Try again
+          </button>
+        </div>
+      ) : displayVideos.length === 0 ? (
+        <div className="py-16 text-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500">
+            {selectedCreatorId
+              ? 'No recent uploads from this creator.'
+              : 'No recent uploads found. Try refreshing.'}
+          </p>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            isGrid
+              ? 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+              : 'flex flex-col gap-3',
+          )}
+        >
+          {displayVideos.map((v, i) => {
+            const appVideo = toAppVideo(v)
+            const isNew = lastVisited > 0 && v.published > 0 && v.published * 1000 > lastVisited
+            return (
+              <div
+                key={`${v.videoId}-${i}`}
+                className="relative animate-fade-in"
+                style={{ animationDelay: `${Math.min(i, 16) * 25}ms` }}
+              >
+                {isNew && (
+                  <span className="absolute right-2 top-2 z-30 rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                    New
+                  </span>
+                )}
+                <VideoCard video={appVideo} index={i} compact={!isGrid} />
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showManage && (
+          <ManageModal
+            creators={favoriteCreators}
+            onUnsubscribe={(id) => {
+              removeFavoriteCreator(id)
+              if (selectedCreatorId === id) setSelectedCreatorId(null)
+            }}
+            onClose={() => setShowManage(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

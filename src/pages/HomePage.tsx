@@ -83,7 +83,7 @@ export function HomePage() {
         description={currentCategory?.description}
       />
 
-      {/* Category filters + Country */}
+      {/* Category filters */}
       <CategoryTags selectedSlug={categoryParam} />
 
       {/* Continue Watching — shown above category content when on "All" tab */}

@@ -23,8 +23,8 @@ export type DurationOption = 'any' | 'short' | 'medium' | 'long'
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: typeof Clock }[] = [
   { value: 'relevant', label: 'Relevant', icon: Film01 },
-  { value: 'recent', label: 'Recent', icon: Clock },
-  { value: 'popular', label: 'Popular', icon: TrendUp01 },
+  { value: 'recent', label: 'Upload date', icon: Clock },
+  { value: 'popular', label: 'View count', icon: TrendUp01 },
 ]
 
 const FILTER_OPTIONS: {
@@ -44,6 +44,13 @@ const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
   { value: 'short', label: 'Short (< 4 min)' },
   { value: 'medium', label: 'Medium (4–20 min)' },
   { value: 'long', label: 'Long (> 20 min)' },
+]
+
+const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
+  { value: 'any', label: 'Any duration' },
+  { value: 'short', label: 'Short (< 4 min)' },
+  { value: 'medium', label: 'Medium (4–20 min)' },
+  { value: 'long-duration', label: 'Long (> 20 min)' },
 ]
 
 const SORT_PARAM = 'sort'
