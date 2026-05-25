@@ -183,6 +183,7 @@ export function WatchPage() {
         theaterMode={theaterMode}
         onTheaterModeToggle={() => setTheaterMode((t) => !t)}
         formatStreams={video.formatStreams}
+        chapters={video.chapters}
       />
       <AnimatePresence>
         {autoplayCountdown !== null && autoplayNextTitle && (

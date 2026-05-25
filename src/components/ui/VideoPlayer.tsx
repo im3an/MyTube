@@ -10,7 +10,10 @@ import {
   Minimize01,
   Expand01,
   Minimize02,
+  Expand03,
   Check,
+  Repeat01,
+  Speedometer01,
 } from '@untitledui/icons'
 import { cx } from '@/utils/cx'
 
@@ -34,11 +37,23 @@ export interface VideoPlayerProps {
   onTheaterModeToggle?: () => void
   /** All available format streams for quality selection */
   formatStreams?: { url: string; quality: string; qualityLabel: string }[]
+  /** Chapter markers to show on progress bar */
+  chapters?: { title: string; start: number; image?: string }[]
+  /** Controlled playback speed (optional) */
+  speed?: number
+  /** Called when speed changes */
+  onSpeedChange?: (speed: number) => void
+  /** Controlled loop state (optional) */
+  loop?: boolean
+  /** Called when loop changes */
+  onLoopChange?: (loop: boolean) => void
 }
 
 export interface VideoPlayerHandle {
   seek: (time: number) => void
 }
+
+const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600)
@@ -51,6 +66,19 @@ function formatTime(seconds: number): string {
 function parseQualityHeight(label: string): number {
   const m = label.match(/^(\d+)/)
   return m ? parseInt(m[1], 10) : 0
+}
+
+function getChapterAtTime(
+  chapters: { title: string; start: number }[],
+  time: number
+): string | undefined {
+  if (!chapters.length) return undefined
+  let current: string | undefined
+  for (const c of chapters) {
+    if (c.start <= time) current = c.title
+    else break
+  }
+  return current
 }
 
 type StreamType = 'direct' | 'hls' | 'dash'
@@ -74,6 +102,11 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     theaterMode,
     onTheaterModeToggle,
     formatStreams,
+    chapters,
+    speed,
+    onSpeedChange,
+    loop,
+    onLoopChange,
   },
   ref
 ) {
@@ -116,8 +149,30 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const [hoverProgress, setHoverProgress] = useState<number | null>(null)
   const [showVolume, setShowVolume] = useState(false)
   const [showQualityMenu, setShowQualityMenu] = useState(false)
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false)
   const [shortcutToast, setShortcutToast] = useState<ShortcutToast | null>(null)
   const toastCounterRef = useRef(0)
+
+  // Playback speed — prefer controlled prop, fall back to local state
+  const [playbackSpeed, setPlaybackSpeedState] = useState(speed ?? 1)
+  const effectiveSpeed = speed ?? playbackSpeed
+
+  const setPlaybackSpeed = useCallback((s: number) => {
+    setPlaybackSpeedState(s)
+    onSpeedChange?.(s)
+  }, [onSpeedChange])
+
+  // Loop
+  const [loopEnabled, setLoopEnabledState] = useState(loop ?? false)
+  const effectiveLoop = loop ?? loopEnabled
+
+  const setLoopEnabled = useCallback((v: boolean) => {
+    setLoopEnabledState(v)
+    onLoopChange?.(v)
+  }, [onLoopChange])
+
+  // PiP
+  const [isPiP, setIsPiP] = useState(false)
 
   const prevVolumeRef = useRef(1)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -201,6 +256,40 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       document.exitFullscreen()
     } else {
       containerRef.current.requestFullscreen()
+    }
+  }, [])
+
+  const togglePiP = useCallback(async () => {
+    const v = videoRef.current
+    if (!v) return
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture()
+    } else if (document.pictureInPictureEnabled) {
+      await v.requestPictureInPicture()
+    }
+  }, [])
+
+  // Sync playback speed to video element
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = effectiveSpeed
+  }, [effectiveSpeed])
+
+  // Sync loop to video element
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.loop = effectiveLoop
+  }, [effectiveLoop])
+
+  // PiP state sync — track browser-native PiP toggle
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const onEnter = () => setIsPiP(true)
+    const onLeave = () => setIsPiP(false)
+    v.addEventListener('enterpictureinpicture', onEnter)
+    v.addEventListener('leavepictureinpicture', onLeave)
+    return () => {
+      v.removeEventListener('enterpictureinpicture', onEnter)
+      v.removeEventListener('leavepictureinpicture', onLeave)
     }
   }, [])
 
@@ -347,6 +436,32 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
           onTheaterModeToggle?.()
           showToast(theaterMode ? 'Normal View' : 'Theater Mode')
           break
+        case 'p':
+        case 'P':
+          e.preventDefault()
+          togglePiP()
+          showToast('Picture-in-Picture')
+          break
+        case '<':
+        case ',':
+          e.preventDefault()
+          {
+            const idx = SPEEDS.indexOf(effectiveSpeed)
+            const next = idx > 0 ? SPEEDS[idx - 1] : SPEEDS[0]
+            setPlaybackSpeed(next)
+            showToast(`${next}×`)
+          }
+          break
+        case '>':
+        case '.':
+          e.preventDefault()
+          {
+            const idx = SPEEDS.indexOf(effectiveSpeed)
+            const next = idx < SPEEDS.length - 1 ? SPEEDS[idx + 1] : SPEEDS[SPEEDS.length - 1]
+            setPlaybackSpeed(next)
+            showToast(`${next}×`)
+          }
+          break
         case 'ArrowLeft':
           e.preventDefault()
           if (v) { v.currentTime = Math.max(0, v.currentTime - 5); showToast('−5s') }
@@ -391,7 +506,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [toggleFullscreen, toggleMute, muted, volume, duration, theaterMode, onTheaterModeToggle, showToast])
+  }, [toggleFullscreen, toggleMute, togglePiP, muted, volume, duration, theaterMode, onTheaterModeToggle, showToast, effectiveSpeed, setPlaybackSpeed])
 
   // No playable stream — YouTube embed as fallback (or DASH defer)
   if (!effectiveStreamUrl || streamType === 'dash') {
@@ -429,6 +544,13 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const currentStreamLabel = selectedStreamUrl
     ? sortedStreams.find((s) => s.url === selectedStreamUrl)?.qualityLabel ?? 'Auto'
     : 'Auto'
+
+  const speedLabel = effectiveSpeed === 1 ? '1×' : `${effectiveSpeed}×`
+
+  const hoverTime = hoverProgress !== null ? hoverProgress * duration : null
+  const hoverChapter = hoverTime !== null && chapters?.length
+    ? getChapterAtTime(chapters, hoverTime)
+    : undefined
 
   return (
     <div
@@ -476,11 +598,11 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         </div>
       )}
 
-      {/* Quality menu overlay — close on outside click */}
-      {showQualityMenu && (
+      {/* Overlay to close menus on outside click */}
+      {(showQualityMenu || showSpeedMenu) && (
         <div
           className="absolute inset-0 z-10"
-          onClick={() => setShowQualityMenu(false)}
+          onClick={() => { setShowQualityMenu(false); setShowSpeedMenu(false) }}
         />
       )}
 
@@ -498,7 +620,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
           {/* Progress bar */}
           <div
             ref={progressRef}
-            className="group/progress mb-3 h-1 w-full cursor-pointer rounded-full bg-white/20 transition-all hover:h-1.5"
+            className="group/progress relative mb-3 h-1 w-full cursor-pointer rounded-full bg-white/20 transition-all hover:h-1.5"
             onClick={handleProgressClick}
             onMouseMove={handleProgressHover}
             onMouseLeave={() => setHoverProgress(null)}
@@ -520,11 +642,31 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
                 style={{ width: `${hoverProgress * 100}%` }}
               />
             )}
+            {/* Chapter tick marks */}
+            {duration > 0 && (chapters ?? []).map((ch) => (
+              <div
+                key={ch.start}
+                className="absolute top-0 h-full w-0.5 bg-white/40 pointer-events-none"
+                style={{ left: `${(ch.start / duration) * 100}%` }}
+              />
+            ))}
             {/* Thumb */}
             <div
               className="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-white opacity-0 shadow-md transition-opacity group-hover/progress:opacity-100"
               style={{ left: `calc(${progressPct}% - 6px)` }}
             />
+            {/* Hover tooltip */}
+            {hoverProgress !== null && hoverTime !== null && (
+              <div
+                className="absolute bottom-4 -translate-x-1/2 rounded-lg bg-black/80 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm pointer-events-none whitespace-nowrap"
+                style={{ left: `${hoverProgress * 100}%` }}
+              >
+                <div>{formatTime(hoverTime)}</div>
+                {hoverChapter && (
+                  <div className="text-white/60 text-[10px] mt-0.5">{hoverChapter}</div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bottom controls row */}
@@ -583,11 +725,58 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
               </div>
             </div>
 
+            {/* Loop toggle */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setLoopEnabled(!effectiveLoop) }}
+              className={cx(
+                'flex size-8 items-center justify-center rounded-lg transition-all duration-150',
+                effectiveLoop
+                  ? 'text-blue-400 hover:bg-white/10'
+                  : 'text-white/90 hover:bg-white/10 hover:text-white'
+              )}
+              aria-label={effectiveLoop ? 'Disable loop' : 'Enable loop'}
+              title={effectiveLoop ? 'Loop on' : 'Loop off'}
+            >
+              <Repeat01 className="size-4" />
+            </button>
+
+            {/* Speed selector */}
+            <div className="relative z-20">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowSpeedMenu((v) => !v); setShowQualityMenu(false) }}
+                className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-white/90 transition-all duration-150 hover:bg-white/10 hover:text-white"
+                aria-label="Playback speed"
+                title="Playback speed"
+              >
+                <Speedometer01 className="size-3.5" />
+                <span>{speedLabel}</span>
+              </button>
+
+              {showSpeedMenu && (
+                <div className="absolute bottom-10 right-0 min-w-[100px] overflow-hidden rounded-xl border border-white/10 bg-gray-950/95 shadow-2xl backdrop-blur-sm">
+                  {SPEEDS.map((s) => (
+                    <button
+                      key={s}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPlaybackSpeed(s)
+                        setShowSpeedMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-white/90 transition-colors hover:bg-white/10"
+                    >
+                      <span className="flex-1">{s === 1 ? 'Normal' : `${s}×`}</span>
+                      {effectiveSpeed === s && <Check className="size-3.5 text-white" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Quality selector */}
             {sortedStreams.length > 0 && (
               <div className="relative z-20">
                 <button
-                  onClick={(e) => { e.stopPropagation(); setShowQualityMenu((v) => !v) }}
+                  onClick={(e) => { e.stopPropagation(); setShowQualityMenu((v) => !v); setShowSpeedMenu(false) }}
                   className="flex h-8 items-center rounded-lg px-2 text-xs font-semibold text-white/90 transition-all duration-150 hover:bg-white/10 hover:text-white"
                   aria-label="Quality"
                 >
@@ -633,6 +822,23 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Picture-in-Picture */}
+            {typeof document !== 'undefined' && document.pictureInPictureEnabled && (
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePiP() }}
+                className={cx(
+                  'flex size-8 items-center justify-center rounded-lg transition-all duration-150',
+                  isPiP
+                    ? 'text-blue-400 hover:bg-white/10'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                )}
+                aria-label={isPiP ? 'Exit Picture-in-Picture' : 'Picture-in-Picture'}
+                title={isPiP ? 'Exit Picture-in-Picture' : 'Picture-in-Picture'}
+              >
+                <Expand03 className="size-4" />
+              </button>
             )}
 
             {/* Theater mode */}
