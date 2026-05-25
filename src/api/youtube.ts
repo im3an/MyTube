@@ -50,6 +50,7 @@ interface PipedStreamDetail {
   views: number
   likes: number
   dislikes: number
+  tags?: string[]
   audioStreams: PipedMediaStream[]
   videoStreams: PipedMediaStream[]
   relatedStreams: PipedStreamItem[]
@@ -151,6 +152,7 @@ export interface InvidiousVideoDetail extends InvidiousVideo {
   likeCount: number
   dislikeCount: number
   subscriberCount?: number
+  tags?: string[]
   subtitles?: SubtitleTrack[]
   chapters?: { title: string; start: number; image?: string }[]
 }
@@ -285,6 +287,7 @@ function pipedDetailToVideoDetail(
     likeCount: d.likes ?? 0,
     dislikeCount: d.dislikes ?? 0,
     subscriberCount: d.uploaderSubscriberCount,
+    tags: d.tags ?? [],
     subtitles: (d.subtitles ?? []).map((s) => ({
       url: s.url,
       mimeType: s.mimeType ?? 'text/vtt',

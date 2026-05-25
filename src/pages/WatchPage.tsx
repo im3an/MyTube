@@ -232,8 +232,11 @@ export function WatchPage() {
             channelAvatar: appVideo.channelAvatar ?? '',
             channelVerified: appVideo.channelVerified,
             description: video.description,
+            descriptionHtml: video.descriptionHtml,
             subscriberCount: video.subscriberCount,
             likeCount: video.likeCount,
+            dislikeCount: video.dislikeCount,
+            tags: video.tags,
           }}
           videoId={videoId}
           liked={isFavorite(videoId)}
@@ -242,6 +245,7 @@ export function WatchPage() {
           onDislike={() => toggleDislike(videoId)}
           onSave={() => setSaveModalOpen(true)}
           onDownload={() => setDownloadModalOpen(true)}
+          onSeek={(time) => playerRef.current?.seek(time)}
         />
       </motion.div>
 
