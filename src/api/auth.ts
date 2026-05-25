@@ -13,11 +13,14 @@ export interface PublicUser {
 }
 
 async function authFetch(path: string, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const mutating = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
   return fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(mutating ? { 'X-Requested-With': 'XMLHttpRequest' } : {}),
       ...init?.headers,
     },
   })
@@ -82,10 +85,8 @@ export async function getMe(): Promise<{ user: PublicUser | null }> {
 }
 
 export async function updateProfile(updates: { displayName?: string; avatarUrl?: string }): Promise<PublicUser> {
-  const res = await fetch(`${API_BASE}/me`, {
+  const res = await authFetch('/me', {
     method: 'PATCH',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   })
   if (!res.ok) throw new Error('Failed to update profile')

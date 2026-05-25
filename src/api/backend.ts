@@ -56,7 +56,15 @@ interface ApiResponse<T> {
 }
 
 async function backendFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const mutating = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      ...(mutating ? { 'X-Requested-With': 'XMLHttpRequest' } : {}),
+      ...init?.headers,
+    },
+  })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`)
@@ -110,5 +118,8 @@ export async function getChannel(channelId: string): Promise<ChannelDto | null> 
 }
 
 export async function recordView(videoId: string): Promise<void> {
-  await fetch(`${API_BASE}/videos/${videoId}/view`, { method: 'POST' })
+  await fetch(`${API_BASE}/videos/${videoId}/view`, {
+    method: 'POST',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+  })
 }

@@ -5,6 +5,12 @@
 import { query } from '../db/client.js'
 import { NotFoundError } from '../utils/errors.js'
 
+const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/
+
+function isValidVideoId(id: string): boolean {
+  return VIDEO_ID_RE.test(id)
+}
+
 export interface UserDataPayload {
   history?: { videoId: string; watchedAt: string }[]
   favorites?: string[]
@@ -89,6 +95,7 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
     if (data.history !== undefined) {
       await client.query('DELETE FROM user_history WHERE user_id = $1', [userId])
       for (const h of data.history.slice(0, 100)) {
+        if (!isValidVideoId(h.videoId)) continue
         await client.query(
           'INSERT INTO user_history (user_id, video_id, watched_at) VALUES ($1, $2, $3) ON CONFLICT (user_id, video_id) DO UPDATE SET watched_at = $3',
           [userId, h.videoId, h.watchedAt]
@@ -98,12 +105,14 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
     if (data.favorites !== undefined) {
       await client.query('DELETE FROM user_favorites WHERE user_id = $1', [userId])
       for (const v of data.favorites) {
+        if (!isValidVideoId(v)) continue
         await client.query('INSERT INTO user_favorites (user_id, video_id) VALUES ($1, $2)', [userId, v])
       }
     }
     if (data.dislikes !== undefined) {
       await client.query('DELETE FROM user_dislikes WHERE user_id = $1', [userId])
       for (const v of data.dislikes) {
+        if (!isValidVideoId(v)) continue
         await client.query('INSERT INTO user_dislikes (user_id, video_id) VALUES ($1, $2)', [userId, v])
       }
     }
@@ -116,6 +125,7 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
     if (data.watchLater !== undefined) {
       await client.query('DELETE FROM user_watch_later WHERE user_id = $1', [userId])
       for (const v of data.watchLater) {
+        if (!isValidVideoId(v)) continue
         await client.query('INSERT INTO user_watch_later (user_id, video_id) VALUES ($1, $2)', [userId, v])
       }
     }
@@ -124,8 +134,10 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
       await client.query('DELETE FROM user_playlists WHERE user_id = $1', [userId])
       for (const p of data.playlists) {
         await client.query('INSERT INTO user_playlists (id, user_id, name, description) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [p.id, userId, p.name, p.description])
-        for (let i = 0; i < (p.videoIds ?? []).length; i++) {
-          await client.query('INSERT INTO user_playlist_videos (playlist_id, video_id, position) VALUES ($1, $2, $3)', [p.id, (p.videoIds ?? [])[i], i])
+        const ids = p.videoIds ?? []
+        for (let i = 0; i < ids.length; i++) {
+          if (!isValidVideoId(ids[i])) continue
+          await client.query('INSERT INTO user_playlist_videos (playlist_id, video_id, position) VALUES ($1, $2, $3)', [p.id, ids[i], i])
         }
       }
     }
@@ -137,6 +149,7 @@ export async function putUserData(userId: string, data: UserDataPayload): Promis
     }
     if (data.playbackPositions !== undefined) {
       for (const [videoId, pos] of Object.entries(data.playbackPositions)) {
+        if (!isValidVideoId(videoId)) continue
         await client.query(
           'INSERT INTO user_playback_positions (user_id, video_id, position_sec, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (user_id, video_id) DO UPDATE SET position_sec = $3, updated_at = NOW()',
           [userId, videoId, pos]

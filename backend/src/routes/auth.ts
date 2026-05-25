@@ -8,7 +8,7 @@ import * as authQueries from '../db/queries/auth.js'
 
 export async function authRoutes(app: FastifyInstance) {
   /** POST /auth/register/options — get registration options */
-  app.post<{ Body: { username: string } }>('/register/options', async (req, reply) => {
+  app.post<{ Body: { username: string } }>('/register/options', { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (req, reply) => {
     const { username } = req.body ?? {}
     try {
     const { options, userId } = await authService.getRegistrationOptions(username)
@@ -32,7 +32,7 @@ export async function authRoutes(app: FastifyInstance) {
   })
 
   /** POST /auth/register/verify — verify registration, create session */
-  app.post<{ Body: { username: string; response: unknown } }>('/register/verify', async (req, reply) => {
+  app.post<{ Body: { username: string; response: unknown } }>('/register/verify', { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (req, reply) => {
     const { username, response } = req.body ?? {}
     const { userId } = await authService.verifyRegistration(username, response as any)
     ;(req as any).session?.set('userId', userId)
@@ -42,14 +42,14 @@ export async function authRoutes(app: FastifyInstance) {
   })
 
   /** POST /auth/login/options — get authentication options */
-  app.post<{ Body: { username: string } }>('/login/options', async (req, reply) => {
+  app.post<{ Body: { username: string } }>('/login/options', { config: { rateLimit: { max: 10, timeWindow: 60_000 } } }, async (req, reply) => {
     const { username } = req.body ?? {}
     const options = await authService.getAuthenticationOptions(username)
     return reply.send(options)
   })
 
   /** POST /auth/login/verify — verify authentication, create session */
-  app.post<{ Body: { username: string; response: unknown } }>('/login/verify', async (req, reply) => {
+  app.post<{ Body: { username: string; response: unknown } }>('/login/verify', { config: { rateLimit: { max: 5, timeWindow: 60_000 } } }, async (req, reply) => {
     const { username, response } = req.body ?? {}
     const { userId } = await authService.verifyAuthentication(username, response as any)
     ;(req as any).session?.set('userId', userId)

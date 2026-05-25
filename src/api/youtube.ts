@@ -81,6 +81,9 @@ interface PipedCommentItem {
   thumbnail: string
   verified: boolean
   creatorReplied: boolean
+  edited?: boolean
+  replyCount?: number
+  repliesPage?: string
 }
 
 interface PipedChannelItem {
@@ -153,10 +156,18 @@ export interface InvidiousVideoDetail extends InvidiousVideo {
 export interface InvidiousComment {
   commentId?: string
   author: string
+  authorId?: string
+  authorUrl?: string
   authorThumbnails: { url: string }[]
   content: string
   publishedText: string
   likeCount: number
+  isEdited?: boolean
+  isPinned?: boolean
+  hearted?: boolean
+  creatorReplied?: boolean
+  replyCount?: number
+  repliesPage?: string
 }
 
 export interface ChannelInfo {
@@ -283,13 +294,22 @@ function pipedDetailToVideoDetail(
 }
 
 function pipedCommentToComment(c: PipedCommentItem): InvidiousComment {
+  const authorId = c.commentorUrl ? extractChannelId(c.commentorUrl) : undefined
   return {
     commentId: c.commentId,
     author: c.author,
+    authorId,
+    authorUrl: c.commentorUrl || undefined,
     authorThumbnails: c.thumbnail ? [{ url: c.thumbnail }] : [],
     content: c.commentText,
     publishedText: c.commentedTime,
     likeCount: c.likeCount ?? 0,
+    isEdited: c.edited ?? false,
+    isPinned: c.pinned ?? false,
+    hearted: c.hearted ?? false,
+    creatorReplied: c.creatorReplied ?? false,
+    replyCount: c.replyCount ?? 0,
+    repliesPage: c.repliesPage,
   }
 }
 
@@ -540,6 +560,25 @@ export async function getCommentsPage(
     }
   } catch {
     return { comments: [], nextpage: null, disabled: false }
+  }
+}
+
+/** Fetch replies for a comment using the repliesPage token from Piped. */
+export async function getCommentReplies(
+  videoId: string,
+  repliesPage: string,
+): Promise<{ replies: InvidiousComment[] }> {
+  try {
+    const res = await pipedFetch(
+      `/nextpage/comments/${videoId}?nextpage=${encodeURIComponent(repliesPage)}`,
+    )
+    if (!res.ok) return { replies: [] }
+    const data = await res.json()
+    return {
+      replies: (data?.comments ?? []).map(pipedCommentToComment),
+    }
+  } catch {
+    return { replies: [] }
   }
 }
 

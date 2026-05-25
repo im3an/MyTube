@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Globe01 } from '@untitledui/icons'
+import { ChevronDown, Globe01, Stars01 } from '@untitledui/icons'
 import { categories } from '@/data/mockCategories'
 import { useRegionPreference } from '@/components/providers/RegionProvider'
+import { useUserData } from '@/hooks/useUserData'
 import { cn } from '@/lib/utils'
 
 interface CategoryTagsProps {
@@ -13,7 +14,9 @@ interface CategoryTagsProps {
 export function CategoryTags({ selectedSlug }: CategoryTagsProps) {
   const navigate = useNavigate()
   const { region, setRegion, regionInfo, regions } = useRegionPreference()
+  const { history } = useUserData()
   const [countryOpen, setCountryOpen] = useState(false)
+  const hasHistory = history.length > 0
 
   const handleCategoryChange = (slug: string) => {
     navigate(slug === 'all' ? '/' : `/?category=${slug}`, { replace: true })
@@ -24,7 +27,31 @@ export function CategoryTags({ selectedSlug }: CategoryTagsProps) {
       {/* Category chips */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
         <div className="flex shrink-0 gap-1.5">
+          {/* "Recommended" chip — only shown when user has watch history */}
+          {hasHistory && (
+            <button
+              onClick={() => handleCategoryChange('all')}
+              className={cn(
+                'relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-all duration-200',
+                selectedSlug === 'all'
+                  ? 'text-white shadow-sm dark:text-gray-900'
+                  : 'bg-white/60 text-gray-500 ring-1 ring-gray-200/50 backdrop-blur-sm hover:bg-white/90 hover:text-gray-900 hover:ring-gray-300/60 dark:bg-white/[0.04] dark:text-gray-400 dark:ring-gray-700/40 dark:hover:bg-white/[0.08] dark:hover:text-white'
+              )}
+            >
+              {selectedSlug === 'all' && (
+                <motion.span
+                  layoutId="category-pill"
+                  className="absolute inset-0 rounded-xl bg-gray-900 dark:bg-white"
+                  style={{ zIndex: 0 }}
+                  transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }}
+                />
+              )}
+              <Stars01 className="relative z-10 size-3.5" />
+              <span className="relative z-10">Recommended</span>
+            </button>
+          )}
           {categories.map((cat) => {
+            if (hasHistory && cat.slug === 'all') return null
             const isSelected = selectedSlug === cat.slug
             const Icon = cat.icon
             return (

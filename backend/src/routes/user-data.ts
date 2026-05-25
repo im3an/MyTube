@@ -23,8 +23,8 @@ export async function userDataRoutes(app: FastifyInstance) {
     return reply.send(data)
   })
 
-  /** PUT /user-data — upsert user data */
-  app.put<{ Body: userDataService.UserDataPayload }>('/', async (req, reply) => {
+  /** PUT /user-data — upsert user data (64 KB body limit) */
+  app.put<{ Body: userDataService.UserDataPayload }>('/', { bodyLimit: 65_536 }, async (req, reply) => {
     const userId = await requireAuth(req, reply)
     if (typeof userId !== 'string') return
     const body = req.body ?? {}

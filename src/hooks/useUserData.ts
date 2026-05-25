@@ -19,6 +19,7 @@ export interface Playlist {
   description: string
   videoIds: string[]
   thumbnailUrls?: string[]
+  createdAt?: string
 }
 
 export interface SearchHistoryEntry {
@@ -205,6 +206,21 @@ export function useUserData() {
     }))
   }, [])
 
+  const removeFromHistory = useCallback((videoId: string) => {
+    setData((prev) => ({
+      ...prev,
+      history: prev.history.filter((h) => h.videoId !== videoId),
+    }))
+  }, [])
+
+  const removeMultipleFromHistory = useCallback((videoIds: string[]) => {
+    const set = new Set(videoIds)
+    setData((prev) => ({
+      ...prev,
+      history: prev.history.filter((h) => !set.has(h.videoId)),
+    }))
+  }, [])
+
   const clearHistory = useCallback(() => {
     setData((prev) => ({ ...prev, history: [] }))
   }, [])
@@ -253,12 +269,28 @@ export function useUserData() {
     }))
   }, [])
 
+  const removeMultipleFromWatchLater = useCallback((videoIds: string[]) => {
+    const set = new Set(videoIds)
+    setData((prev) => ({
+      ...prev,
+      watchLater: prev.watchLater.filter((id) => !set.has(id)),
+    }))
+  }, [])
+
+  const removeMultipleFromFavorites = useCallback((videoIds: string[]) => {
+    const set = new Set(videoIds)
+    setData((prev) => ({
+      ...prev,
+      favorites: prev.favorites.filter((id) => !set.has(id)),
+    }))
+  }, [])
+
   const createPlaylist = useCallback(
     (name: string, description: string = '') => {
       const id = crypto.randomUUID()
       setData((prev) => ({
         ...prev,
-        playlists: [...prev.playlists, { id, name, description, videoIds: [] }],
+        playlists: [...prev.playlists, { id, name, description, videoIds: [], createdAt: new Date().toISOString() }],
       }))
       return id
     },
@@ -292,7 +324,7 @@ export function useUserData() {
   )
 
   const updatePlaylist = useCallback(
-    (playlistId: string, updates: { name?: string; description?: string }) => {
+    (playlistId: string, updates: { name?: string; description?: string; videoIds?: string[] }) => {
       setData((prev) => ({
         ...prev,
         playlists: prev.playlists.map((p) =>
@@ -301,6 +333,7 @@ export function useUserData() {
                 ...p,
                 ...(updates.name !== undefined && { name: updates.name }),
                 ...(updates.description !== undefined && { description: updates.description }),
+                ...(updates.videoIds !== undefined && { videoIds: updates.videoIds }),
               }
             : p
         ),
@@ -357,6 +390,17 @@ export function useUserData() {
     })
   }, [])
 
+  const removeSearchEntry = useCallback((query: string) => {
+    setData((prev) => ({
+      ...prev,
+      searchHistory: prev.searchHistory.filter((e) => e.query !== query),
+    }))
+  }, [])
+
+  const clearSearchHistory = useCallback(() => {
+    setData((prev) => ({ ...prev, searchHistory: [] }))
+  }, [])
+
   const getPlaybackPosition = useCallback(
     (videoId: string): number | undefined => data.playbackPositions[videoId],
     [data.playbackPositions]
@@ -371,6 +415,8 @@ export function useUserData() {
     toggleFavoriteCreator,
     isFavoriteCreator,
     addToHistory,
+    removeFromHistory,
+    removeMultipleFromHistory,
     clearHistory,
     toggleFavorite,
     isFavorite,
@@ -378,6 +424,8 @@ export function useUserData() {
     isDisliked,
     toggleWatchLater,
     removeFromWatchLater,
+    removeMultipleFromWatchLater,
+    removeMultipleFromFavorites,
     createPlaylist,
     addToPlaylist,
     removeFromPlaylist,
@@ -387,5 +435,7 @@ export function useUserData() {
     setPlaybackPosition,
     getPlaybackPosition,
     addSearchToHistory,
+    removeSearchEntry,
+    clearSearchHistory,
   }
 }

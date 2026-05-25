@@ -8,6 +8,9 @@ import {
   VolumeX,
   Maximize01,
   Minimize01,
+  Expand01,
+  Minimize02,
+  Check,
 } from '@untitledui/icons'
 import { cx } from '@/utils/cx'
 
@@ -25,6 +28,12 @@ export interface VideoPlayerProps {
   onTimeProgress?: (time: number) => void
   /** Called when video ends */
   onEnded?: () => void
+  /** Theater mode state */
+  theaterMode?: boolean
+  /** Called to toggle theater mode */
+  onTheaterModeToggle?: () => void
+  /** All available format streams for quality selection */
+  formatStreams?: { url: string; quality: string; qualityLabel: string }[]
 }
 
 export interface VideoPlayerHandle {
@@ -39,20 +48,46 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+function parseQualityHeight(label: string): number {
+  const m = label.match(/^(\d+)/)
+  return m ? parseInt(m[1], 10) : 0
+}
+
 type StreamType = 'direct' | 'hls' | 'dash'
 
+interface ShortcutToast {
+  id: number
+  label: string
+}
+
 export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer(
-  { videoId, title, streamUrl: directStreamUrl, hlsUrl, dashUrl, initialTime, onTimeUpdate, onTimeProgress, onEnded },
+  {
+    videoId,
+    title,
+    streamUrl: directStreamUrl,
+    hlsUrl,
+    dashUrl,
+    initialTime,
+    onTimeUpdate,
+    onTimeProgress,
+    onEnded,
+    theaterMode,
+    onTheaterModeToggle,
+    formatStreams,
+  },
   ref
 ) {
-  const effectiveUrl = directStreamUrl ?? hlsUrl ?? dashUrl ?? null
-  const streamType: StreamType = directStreamUrl
+  const [selectedStreamUrl, setSelectedStreamUrl] = useState<string | null>(null)
+
+  const effectiveStreamUrl = selectedStreamUrl ?? directStreamUrl ?? hlsUrl ?? dashUrl ?? null
+  const streamType: StreamType = effectiveStreamUrl === directStreamUrl || (!directStreamUrl && !hlsUrl && !dashUrl)
     ? 'direct'
-    : hlsUrl && effectiveUrl === hlsUrl
+    : effectiveStreamUrl === hlsUrl
       ? 'hls'
-      : dashUrl && effectiveUrl === dashUrl
+      : effectiveStreamUrl === dashUrl
         ? 'dash'
         : 'direct'
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
 
@@ -65,6 +100,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       }
     },
   }), [onTimeUpdate])
+
   const containerRef = useRef<HTMLDivElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const volumeRef = useRef<HTMLDivElement>(null)
@@ -79,32 +115,43 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const [buffered, setBuffered] = useState(0)
   const [hoverProgress, setHoverProgress] = useState<number | null>(null)
   const [showVolume, setShowVolume] = useState(false)
+  const [showQualityMenu, setShowQualityMenu] = useState(false)
+  const [shortcutToast, setShortcutToast] = useState<ShortcutToast | null>(null)
+  const toastCounterRef = useRef(0)
 
   const prevVolumeRef = useRef(1)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const progressThrottleRef = useRef<number>(0)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  const video = videoRef.current
+  const showToast = useCallback((label: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastCounterRef.current += 1
+    setShortcutToast({ id: toastCounterRef.current, label })
+    toastTimerRef.current = setTimeout(() => setShortcutToast(null), 1000)
+  }, [])
 
   const togglePlay = useCallback(() => {
-    if (!video) return
-    if (video.paused) {
-      video.play()
+    const v = videoRef.current
+    if (!v) return
+    if (v.paused) {
+      v.play()
     } else {
-      video.pause()
+      v.pause()
     }
-  }, [video])
+  }, [])
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!video || !progressRef.current) return
+      const v = videoRef.current
+      if (!v || !progressRef.current) return
       const rect = progressRef.current.getBoundingClientRect()
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
       const newTime = pct * duration
-      video.currentTime = newTime
+      v.currentTime = newTime
       if (onTimeUpdate && newTime > 0) onTimeUpdate(newTime)
     },
-    [video, duration, onTimeUpdate]
+    [duration, onTimeUpdate]
   )
 
   const handleProgressHover = useCallback(
@@ -119,32 +166,34 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 
   const handleVolumeClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!video || !volumeRef.current) return
+      const v = videoRef.current
+      if (!v || !volumeRef.current) return
       const rect = volumeRef.current.getBoundingClientRect()
       const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-      video.volume = pct
-      video.muted = pct === 0
+      v.volume = pct
+      v.muted = pct === 0
       setVolume(pct)
       setMuted(pct === 0)
       if (pct > 0) prevVolumeRef.current = pct
     },
-    [video]
+    []
   )
 
   const toggleMute = useCallback(() => {
-    if (!video) return
+    const v = videoRef.current
+    if (!v) return
     if (muted || volume === 0) {
       const restore = prevVolumeRef.current > 0 ? prevVolumeRef.current : 0.5
-      video.volume = restore
-      video.muted = false
+      v.volume = restore
+      v.muted = false
       setVolume(restore)
       setMuted(false)
     } else {
       prevVolumeRef.current = volume
-      video.muted = true
+      v.muted = true
       setMuted(true)
     }
-  }, [video, muted, volume])
+  }, [muted, volume])
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return
@@ -167,12 +216,12 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     v.addEventListener('loadedmetadata', handler)
     if (v.duration) handler()
     return () => v.removeEventListener('loadedmetadata', handler)
-  }, [effectiveUrl, initialTime])
+  }, [effectiveStreamUrl, initialTime])
 
   // HLS via hls.js (Chrome, Firefox, Edge); Safari uses native HLS via video src
   useEffect(() => {
-    if (streamType !== 'hls' || !effectiveUrl) return
-    if (!Hls.isSupported()) return // Safari: use native src, no effect needed
+    if (streamType !== 'hls' || !effectiveStreamUrl) return
+    if (!Hls.isSupported()) return
 
     const v = videoRef.current
     if (!v) return
@@ -180,14 +229,14 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     hlsRef.current?.destroy()
     const hls = new Hls()
     hlsRef.current = hls
-    hls.loadSource(effectiveUrl)
+    hls.loadSource(effectiveStreamUrl)
     hls.attachMedia(v)
 
     return () => {
       hls.destroy()
       hlsRef.current = null
     }
-  }, [effectiveUrl, streamType])
+  }, [effectiveStreamUrl, streamType])
 
   // Video event listeners
   useEffect(() => {
@@ -240,7 +289,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       v.removeEventListener('progress', onProgress)
       v.removeEventListener('seeked', onSeeked)
     }
-  }, [effectiveUrl, onTimeUpdate, onTimeProgress, onEnded])
+  }, [effectiveStreamUrl, onTimeUpdate, onTimeProgress, onEnded])
 
   // Fullscreen change listener
   useEffect(() => {
@@ -254,13 +303,14 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     setShowControls(true)
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
     hideTimerRef.current = setTimeout(() => {
-      if (playing) setShowControls(false)
+      if (!videoRef.current?.paused) setShowControls(false)
     }, 3000)
-  }, [playing])
+  }, [])
 
   useEffect(() => {
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     }
   }, [])
 
@@ -269,36 +319,82 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
+      const v = videoRef.current
       switch (e.key) {
         case ' ':
         case 'k':
+        case 'K':
           e.preventDefault()
-          togglePlay()
+          if (v) {
+            if (v.paused) { v.play(); showToast('Play') } else { v.pause(); showToast('Pause') }
+          }
           break
         case 'f':
+        case 'F':
           e.preventDefault()
           toggleFullscreen()
+          showToast(document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen')
           break
         case 'm':
+        case 'M':
           e.preventDefault()
           toggleMute()
+          showToast(muted || volume === 0 ? 'Unmuted' : 'Muted')
+          break
+        case 't':
+        case 'T':
+          e.preventDefault()
+          onTheaterModeToggle?.()
+          showToast(theaterMode ? 'Normal View' : 'Theater Mode')
           break
         case 'ArrowLeft':
           e.preventDefault()
-          if (video) video.currentTime = Math.max(0, video.currentTime - 5)
+          if (v) { v.currentTime = Math.max(0, v.currentTime - 5); showToast('−5s') }
           break
         case 'ArrowRight':
           e.preventDefault()
-          if (video) video.currentTime = Math.min(duration, video.currentTime + 5)
+          if (v && duration > 0) { v.currentTime = Math.min(duration, v.currentTime + 5); showToast('+5s') }
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          if (v) {
+            const newVol = Math.min(1, v.volume + 0.1)
+            v.volume = newVol
+            v.muted = false
+            setVolume(newVol)
+            setMuted(false)
+            showToast(`Volume ${Math.round(newVol * 100)}%`)
+          }
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          if (v) {
+            const newVol = Math.max(0, v.volume - 0.1)
+            v.volume = newVol
+            v.muted = newVol === 0
+            setVolume(newVol)
+            setMuted(newVol === 0)
+            showToast(`Volume ${Math.round(newVol * 100)}%`)
+          }
+          break
+        default:
+          if (/^[0-9]$/.test(e.key) && duration > 0) {
+            e.preventDefault()
+            const pct = parseInt(e.key, 10) / 10
+            if (v) {
+              v.currentTime = duration * pct
+              showToast(`${e.key}0%`)
+            }
+          }
           break
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [togglePlay, toggleFullscreen, toggleMute, video, duration])
+  }, [toggleFullscreen, toggleMute, muted, volume, duration, theaterMode, onTheaterModeToggle, showToast])
 
   // No playable stream — YouTube embed as fallback (or DASH defer)
-  if (!effectiveUrl || streamType === 'dash') {
+  if (!effectiveStreamUrl || streamType === 'dash') {
     const embedParams = new URLSearchParams()
     if (initialTime != null && initialTime > 0) embedParams.set('start', String(Math.floor(initialTime)))
     const embedSrc = `https://www.youtube.com/embed/${videoId}${embedParams.toString() ? `?${embedParams}` : ''}`
@@ -324,6 +420,16 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   const effectiveVolume = muted ? 0 : volume
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? VolumeMin : VolumeMax
 
+  const sortedStreams = formatStreams
+    ? [...formatStreams].sort(
+        (a, b) => parseQualityHeight(b.qualityLabel) - parseQualityHeight(a.qualityLabel)
+      )
+    : []
+
+  const currentStreamLabel = selectedStreamUrl
+    ? sortedStreams.find((s) => s.url === selectedStreamUrl)?.qualityLabel ?? 'Auto'
+    : 'Auto'
+
   return (
     <div
       ref={containerRef}
@@ -334,10 +440,10 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       {/* Video element — direct & Safari HLS use src; hls.js handles HLS in other browsers */}
       <video
         ref={videoRef}
-        key={effectiveUrl}
+        key={effectiveStreamUrl}
         src={
           streamType === 'direct' || (streamType === 'hls' && !Hls.isSupported())
-            ? effectiveUrl
+            ? effectiveStreamUrl
             : undefined
         }
         playsInline
@@ -357,6 +463,25 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             <Play className="ml-1 size-7 text-gray-900 dark:text-white" />
           </div>
         </button>
+      )}
+
+      {/* Shortcut toast */}
+      {shortcutToast && (
+        <div
+          key={shortcutToast.id}
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl bg-black/70 px-4 py-2 text-sm font-semibold text-white animate-fade-in backdrop-blur-sm"
+          style={{ animation: 'fadeInOut 1s ease forwards' }}
+        >
+          {shortcutToast.label}
+        </div>
+      )}
+
+      {/* Quality menu overlay — close on outside click */}
+      {showQualityMenu && (
+        <div
+          className="absolute inset-0 z-10"
+          onClick={() => setShowQualityMenu(false)}
+        />
       )}
 
       {/* Controls overlay */}
@@ -457,6 +582,73 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
                 </div>
               </div>
             </div>
+
+            {/* Quality selector */}
+            {sortedStreams.length > 0 && (
+              <div className="relative z-20">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowQualityMenu((v) => !v) }}
+                  className="flex h-8 items-center rounded-lg px-2 text-xs font-semibold text-white/90 transition-all duration-150 hover:bg-white/10 hover:text-white"
+                  aria-label="Quality"
+                >
+                  {currentStreamLabel}
+                </button>
+
+                {showQualityMenu && (
+                  <div className="absolute bottom-10 right-0 min-w-[120px] overflow-hidden rounded-xl border border-white/10 bg-gray-950/95 shadow-2xl backdrop-blur-sm">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedStreamUrl(null)
+                        setShowQualityMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-white/90 transition-colors hover:bg-white/10"
+                    >
+                      <span className="flex-1">Auto</span>
+                      {selectedStreamUrl === null && <Check className="size-3.5 text-white" />}
+                    </button>
+                    {sortedStreams.map((stream) => (
+                      <button
+                        key={stream.url}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const v = videoRef.current
+                          const time = v?.currentTime ?? 0
+                          const wasPlaying = !v?.paused
+                          setSelectedStreamUrl(stream.url)
+                          setShowQualityMenu(false)
+                          requestAnimationFrame(() => {
+                            const el = videoRef.current
+                            if (!el) return
+                            el.currentTime = time
+                            if (wasPlaying) el.play().catch(() => {})
+                          })
+                        }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-white/90 transition-colors hover:bg-white/10"
+                      >
+                        <span className="flex-1">{stream.qualityLabel}</span>
+                        {selectedStreamUrl === stream.url && <Check className="size-3.5 text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Theater mode */}
+            {onTheaterModeToggle && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onTheaterModeToggle() }}
+                className="flex size-8 items-center justify-center rounded-lg text-white/90 transition-all duration-150 hover:bg-white/10 hover:text-white"
+                aria-label={theaterMode ? 'Exit theater mode' : 'Theater mode'}
+              >
+                {theaterMode ? (
+                  <Minimize02 className="size-5" />
+                ) : (
+                  <Expand01 className="size-5" />
+                )}
+              </button>
+            )}
 
             {/* Fullscreen */}
             <button
