@@ -1,67 +1,68 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getChannel } from '@/api/youtube'
 import type { InvidiousVideo } from '@/api/youtube'
 import type { FavoriteCreator } from '@/hooks/useUserData'
 
-export interface SubFeedVideo extends InvidiousVideo {
+export interface FeedVideo extends InvidiousVideo {
   channelName: string
   channelId: string
 }
 
-interface CacheEntry {
-  videos: SubFeedVideo[]
-  expiresAt: number
-}
-
-const CACHE_KEY = 'sub-feed'
-const TTL_MS = 10 * 60 * 1000
 const MAX_CREATORS = 5
 const VIDEOS_PER_CREATOR = 12
+const CACHE_TTL_MS = 10 * 60 * 1000
 
-function readCache(): SubFeedVideo[] | null {
+interface CacheEntry {
+  videos: FeedVideo[]
+  ts: number
+}
+
+function cacheKey(creatorIds: string[]): string {
+  return `sub-feed-${creatorIds.slice(0, MAX_CREATORS).sort().join(',')}`
+}
+
+function readCache(key: string): FeedVideo[] | null {
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY)
+    const raw = sessionStorage.getItem(key)
     if (!raw) return null
     const entry = JSON.parse(raw) as CacheEntry
-    if (Date.now() > entry.expiresAt) {
-      sessionStorage.removeItem(CACHE_KEY)
-      return null
-    }
+    if (Date.now() - entry.ts > CACHE_TTL_MS) return null
     return entry.videos
   } catch {
     return null
   }
 }
 
-function writeCache(videos: SubFeedVideo[]): void {
+function writeCache(key: string, videos: FeedVideo[]): void {
   try {
-    const entry: CacheEntry = { videos, expiresAt: Date.now() + TTL_MS }
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(entry))
+    const entry: CacheEntry = { videos, ts: Date.now() }
+    sessionStorage.setItem(key, JSON.stringify(entry))
   } catch {}
 }
 
 export function useSubscriptionFeed(creators: FavoriteCreator[]): {
-  videos: SubFeedVideo[]
+  videos: FeedVideo[]
   loading: boolean
   error: string | null
   refresh: () => void
 } {
-  const [videos, setVideos] = useState<SubFeedVideo[]>([])
+  const [videos, setVideos] = useState<FeedVideo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const creatorIds = creators.map((c) => c.id).join(',')
+  const refreshCountRef = useRef(0)
 
-  const fetchFeed = useCallback(
-    async (bust: boolean) => {
-      const limited = creators.slice(0, MAX_CREATORS)
-      if (limited.length === 0) {
+  const fetch = useCallback(
+    async (signal: AbortController, bust = false) => {
+      const top = creators.slice(0, MAX_CREATORS)
+      if (top.length === 0) {
         setVideos([])
         setLoading(false)
         return
       }
 
+      const key = cacheKey(top.map((c) => c.id))
       if (!bust) {
-        const cached = readCache()
+        const cached = readCache(key)
         if (cached) {
           setVideos(cached)
           setLoading(false)
@@ -73,47 +74,52 @@ export function useSubscriptionFeed(creators: FavoriteCreator[]): {
       setError(null)
 
       const results = await Promise.allSettled(
-        limited.map((creator) => getChannel(creator.id)),
+        top.map((creator) =>
+          getChannel(creator.id).then((ch): FeedVideo[] => {
+            if (!ch) return []
+            return ch.videos.slice(0, VIDEOS_PER_CREATOR).map((v) => ({
+              ...v,
+              channelName: creator.name,
+              channelId: creator.id,
+            }))
+          })
+        )
       )
 
-      const allVideos: SubFeedVideo[] = []
-      results.forEach((result, i) => {
-        if (result.status !== 'fulfilled' || !result.value) return
-        const channel = result.value
-        const creator = limited[i]
-        const channelName = channel.name || creator.name
-        const channelId = channel.id || creator.id
+      if (signal.signal.aborted) return
 
-        channel.videos.slice(0, VIDEOS_PER_CREATOR).forEach((v: InvidiousVideo) => {
-          if (!v.videoId) return
-          allVideos.push({ ...v, channelName, channelId })
-        })
-      })
+      const combined: FeedVideo[] = []
+      let anyError = false
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          combined.push(...r.value)
+        } else {
+          anyError = true
+        }
+      }
 
-      const sorted = allVideos.sort((a, b) => (b.published ?? 0) - (a.published ?? 0))
+      combined.sort((a, b) => (b.published ?? 0) - (a.published ?? 0))
 
-      writeCache(sorted)
-      setVideos(sorted)
+      writeCache(key, combined)
+      setVideos(combined)
+      setError(anyError && combined.length === 0 ? 'Failed to load feed' : null)
       setLoading(false)
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [creatorIds],
+    [creators.map((c) => c.id).join(',')]
   )
 
   useEffect(() => {
-    fetchFeed(false).catch((e: unknown) => {
-      setError(e instanceof Error ? e.message : 'Failed to load feed')
-      setLoading(false)
-    })
-  }, [fetchFeed])
+    const ctrl = new AbortController()
+    setLoading(true)
+    fetch(ctrl)
+    return () => ctrl.abort()
+  }, [fetch])
 
   const refresh = useCallback(() => {
-    sessionStorage.removeItem(CACHE_KEY)
-    fetchFeed(true).catch((e: unknown) => {
-      setError(e instanceof Error ? e.message : 'Failed to load feed')
-      setLoading(false)
-    })
-  }, [fetchFeed])
+    refreshCountRef.current += 1
+    const ctrl = new AbortController()
+    fetch(ctrl, true)
+  }, [fetch])
 
   return { videos, loading, error, refresh }
 }

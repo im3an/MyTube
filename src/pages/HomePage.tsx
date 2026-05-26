@@ -86,10 +86,10 @@ export function HomePage() {
       {/* Category filters */}
       <CategoryTags selectedSlug={categoryParam} />
 
-      {/* Continue Watching — above category content when on "All" tab */}
+      {/* Continue Watching — shown above category content when on "All" tab */}
       {isAllTab && <ContinueWatchingSection />}
 
-      {/* Featured hero — full-width with gradient overlay + Framer Motion fade-in */}
+      {/* Featured hero — improved with full-width layout + Framer Motion */}
       <AnimatePresence>
         {!loading && !error && featuredVideo && (
           <motion.div
@@ -103,7 +103,7 @@ export function HomePage() {
               to={`/watch/${featuredVideo.id}`}
               className="group relative block overflow-hidden rounded-2xl bg-gray-100 transition-all duration-300 hover:shadow-2xl dark:bg-gray-800"
             >
-              {/* Blurred color splash behind card */}
+              {/* Color blur splash */}
               <div
                 className="absolute inset-0 -z-10 scale-105 opacity-40"
                 style={{
@@ -115,7 +115,7 @@ export function HomePage() {
                 aria-hidden
               />
 
-              {/* Full-width 16:9 thumbnail (wider on desktop) with bottom gradient */}
+              {/* Full-width 16:9 thumbnail with gradient overlay */}
               <div className="relative aspect-video w-full overflow-hidden md:aspect-[21/9]">
                 <img
                   src={getHighQualityThumbnail(featuredVideo.id)}
@@ -136,7 +136,7 @@ export function HomePage() {
                   }}
                 />
 
-                {/* Live / duration badge */}
+                {/* Live badge */}
                 {featuredVideo.liveNow ? (
                   <motion.span
                     className="absolute bottom-4 right-4 rounded-lg bg-red-500 px-2.5 py-1 text-xs font-semibold uppercase text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]"
@@ -158,12 +158,12 @@ export function HomePage() {
                   </span>
                 ) : null}
 
-                {/* "Picked for you" / "Trending" pill */}
+                {/* "For you" / "Trending" pill */}
                 <span className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-red-500/90 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
                   {featuredReason === 'channel' ? 'Picked for you' : 'Trending'}
                 </span>
 
-                {/* Text overlay — title, channel, views */}
+                {/* Text content overlaid on image */}
                 <div className="absolute inset-x-0 bottom-0 px-5 pb-5 md:px-8 md:pb-7">
                   <h2 className="text-xl font-bold tracking-tight text-white drop-shadow-sm md:text-3xl">
                     {featuredVideo.title}
@@ -194,7 +194,7 @@ export function HomePage() {
         divider={false}
       />
 
-      {/* Error empty state with retry button */}
+      {/* Error empty state */}
       {error && (
         <EmptyState
           icon={<Wifi className="size-9 text-gray-400 dark:text-gray-500" />}
@@ -207,7 +207,7 @@ export function HomePage() {
         />
       )}
 
-      {/* Loading skeleton grid — 12 cards */}
+      {/* Loading skeleton grid */}
       {loading && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(12)].map((_, i) => (

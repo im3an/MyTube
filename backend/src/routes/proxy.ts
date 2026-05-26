@@ -55,6 +55,30 @@ async function proxyPiped(path: string): Promise<{ status: number; body: Buffer;
   }
 }
 
+const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/
+
+const ALLOWED_FREETOGAME_PREFIXES = ['games', 'game']
+
+const ALLOWED_SUBTITLE_HOSTS = [
+  'youtube.com',
+  'googlevideo.com',
+  'yt3.ggpht.com',
+  'pipedapi.kavin.rocks',
+  'api.piped.private.coffee',
+  'pipedapi.tokhmi.xyz',
+  'pipedapi.moomoo.me',
+  'pipedapi.rivo.lol',
+]
+
+function isAllowedSubtitleHost(url: string): boolean {
+  try {
+    const { hostname } = new URL(url)
+    return ALLOWED_SUBTITLE_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
+}
+
 export async function proxyRoutes(app: FastifyInstance) {
   // Piped: /api/piped/*
   app.get('/piped/*', async (req: FastifyRequest<{ Params: { '*': string } }>, reply: FastifyReply) => {
@@ -69,8 +93,8 @@ export async function proxyRoutes(app: FastifyInstance) {
   // oEmbed: /api/oembed/:videoId
   app.get('/oembed/:videoId', async (req: FastifyRequest<{ Params: { videoId: string } }>, reply: FastifyReply) => {
     const videoId = req.params.videoId
-    if (!videoId) {
-      return reply.status(400).send({ error: 'Missing video ID' })
+    if (!videoId || !VIDEO_ID_RE.test(videoId)) {
+      return reply.status(400).send({ error: 'Invalid video ID' })
     }
     try {
       const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`
@@ -102,12 +126,16 @@ export async function proxyRoutes(app: FastifyInstance) {
   // Subtitles: /api/subtitles?url=...
   app.get('/subtitles', async (req: FastifyRequest<{ Querystring: { url?: string } }>, reply: FastifyReply) => {
     const target = req.query.url
-    if (!target || (!target.startsWith('http://') && !target.startsWith('https://'))) {
-      return reply.status(400).send({ error: 'Invalid subtitle URL' })
+    if (!target || target.length > 512 || !isAllowedSubtitleHost(target)) {
+      return reply.status(400).send({ error: 'Invalid or disallowed subtitle URL' })
     }
     try {
       const res = await fetch(target, { signal: AbortSignal.timeout(8000) })
-      const contentType = res.headers.get('content-type') || 'text/vtt'
+      const contentType = res.headers.get('content-type') || ''
+      const allowed = contentType.startsWith('text/vtt') || contentType.startsWith('text/plain') || contentType.startsWith('application/x-subrip')
+      if (!allowed) {
+        return reply.status(400).send({ error: 'Invalid subtitle content type' })
+      }
       const body = Buffer.from(await res.arrayBuffer())
       return reply.status(res.status).header('Content-Type', contentType).send(body)
     } catch {
@@ -137,8 +165,12 @@ export async function proxyRoutes(app: FastifyInstance) {
 
   // FreeToGame: /api/freetogame/*
   app.get('/freetogame/*', async (req: FastifyRequest<{ Params: { '*': string } }>, reply: FastifyReply) => {
-    const splat = req.params['*'] ?? ''
-    const apiPath = splat ? splat : ''
+    const splat = (req.params['*'] ?? '').split('?')[0].replace(/\.{2,}/g, '')
+    const baseSegment = splat.split('/')[0].split('?')[0]
+    if (!ALLOWED_FREETOGAME_PREFIXES.includes(baseSegment)) {
+      return reply.status(400).send({ error: 'Invalid API path' })
+    }
+    const apiPath = splat
     const qs = req.url.split('?')[1]
     const query = qs ? `?${qs}` : ''
     try {

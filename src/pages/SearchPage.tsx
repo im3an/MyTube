@@ -13,9 +13,12 @@ import {
 } from '@/hooks/useResolvedChannelId'
 import { resolveChannelIdentity } from '@/services/channelService'
 import { isCanonicalChannelId } from '@/api/youtube'
-import { SearchMd, Users01 } from '@untitledui/icons'
+import { SearchMd, Users01, Film01 } from '@untitledui/icons'
+import { cn } from '@/lib/utils'
 import type { AppVideo } from '@/hooks/useYouTube'
 import type { FilterOption, SortOption, DurationOption } from '@/components/search/SearchFilterBar'
+
+type SearchTab = 'videos' | 'channels'
 
 function SkeletonCard() {
   return (
@@ -53,7 +56,7 @@ function applyFiltersAndSort(
 ): AppVideo[] {
   let result = [...videos]
 
-  // Filter
+  // Type filter
   switch (filter) {
     case 'from-my-channels':
       result = result.filter((v) =>
@@ -82,21 +85,23 @@ function applyFiltersAndSort(
       break
   }
 
-  // Duration filter
-  switch (duration) {
-    case 'short':
-      result = result.filter((v) => v.lengthSeconds > 0 && v.lengthSeconds < 4 * 60 && !v.liveNow)
-      break
-    case 'medium':
-      result = result.filter(
-        (v) => v.lengthSeconds >= 4 * 60 && v.lengthSeconds <= 20 * 60
-      )
-      break
-    case 'long-duration':
-      result = result.filter((v) => v.lengthSeconds > 20 * 60)
-      break
-    default:
-      break
+  // Duration filter (applied after type filter; skipped for live/shorts which imply duration)
+  if (filter !== 'live' && filter !== 'shorts' && filter !== 'long') {
+    switch (duration) {
+      case 'short':
+        result = result.filter((v) => v.lengthSeconds > 0 && v.lengthSeconds < 4 * 60)
+        break
+      case 'medium':
+        result = result.filter(
+          (v) => v.lengthSeconds >= 4 * 60 && v.lengthSeconds <= 20 * 60
+        )
+        break
+      case 'long':
+        result = result.filter((v) => v.lengthSeconds > 20 * 60)
+        break
+      default:
+        break
+    }
   }
 
   // Sort
@@ -121,6 +126,12 @@ export function SearchPage() {
   const { region } = useRegionPreference()
   const { sort, filter, duration } = useSearchFilters()
   const { favoriteCreators, addSearchToHistory } = useUserData()
+  const [activeTab, setActiveTab] = useState<SearchTab>('videos')
+
+  // Reset to videos tab when query changes
+  useEffect(() => {
+    setActiveTab('videos')
+  }, [query])
 
   // Track search history for recommendation intent scoring
   useEffect(() => {
@@ -205,89 +216,68 @@ export function SearchPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 animate-fade-in lg:flex-row lg:items-start">
-      {/* Profiles section — left sidebar on desktop, horizontal strip at top on mobile */}
-      {(channels.length > 0 || channelsLoading) && (
-        <aside className="shrink-0 lg:w-72 lg:sticky lg:top-24">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            <Users01 className="size-4" />
-            Channels
-          </h3>
-          {channelsLoading ? (
-            <div className="flex gap-3 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:gap-1">
-              {Array.from({ length: 5 }, (_, i) => (
-                <SkeletonChannelCard key={i} />
+    <div className="flex flex-col gap-6 animate-fade-in">
+      {/* Header */}
+      <SectionHeader
+        title={`Results for "${query}"`}
+        description={
+          activeTab === 'channels'
+            ? (channelsLoading ? 'Searching...' : `${channels.length} channels found`)
+            : (loading ? 'Searching...' : `${filteredVideos.length}${hasMore ? '+' : ''} videos found`)
+        }
+        divider={false}
+      />
+
+      {/* Tab pills */}
+      <div className="flex gap-1 rounded-xl border border-gray-200/60 bg-white/70 p-1 w-fit backdrop-blur-sm dark:border-gray-700/40 dark:bg-white/[0.04]">
+        {(['videos', 'channels'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all duration-200',
+              activeTab === tab
+                ? 'bg-gray-900 text-white shadow-sm dark:bg-white dark:text-gray-900'
+                : 'text-gray-500 hover:bg-gray-100/60 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/[0.06] dark:hover:text-white'
+            )}
+          >
+            {tab === 'videos'
+              ? <Film01 className="size-3.5" />
+              : <Users01 className="size-3.5" />
+            }
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Videos tab */}
+      {activeTab === 'videos' && (
+        <div className="space-y-6">
+          {/* Filter bar */}
+          <SearchFilterBar hasFavoriteChannels={favoriteChannelIds.length > 0} />
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-2xl bg-red-50 p-5 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              {error}. Try again or check your connection.
+            </div>
+          )}
+
+          {/* Initial loading */}
+          {loading && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 12 }, (_, i) => (
+                <SkeletonCard key={i} />
               ))}
             </div>
-          ) : (
-            <>
-              {/* Mobile: horizontal scroll with compact cards */}
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide lg:hidden">
-                {channels.map((channel, i) => (
-                  <SearchChannelCard
-                    key={channel.id}
-                    channel={channel}
-                    index={i}
-                    compact
-                  />
-                ))}
-              </div>
-              {/* Desktop: vertical sidebar list */}
-              <div className="hidden space-y-1 overflow-y-auto max-h-[calc(100vh-12rem)] pr-2 scrollbar-thin lg:block">
-                {channels.map((channel, i) => (
-                  <SearchChannelCard
-                    key={channel.id}
-                    channel={channel}
-                    index={i}
-                  />
-                ))}
-              </div>
-            </>
           )}
-        </aside>
-      )}
 
-      {/* Main content — videos */}
-      <div className="min-w-0 flex-1 space-y-6">
-        <SectionHeader
-          title={`Results for "${query}"`}
-          description={
-            loading
-              ? 'Searching...'
-              : `${filteredVideos.length}${hasMore ? '+' : ''} videos found`
-          }
-          divider={false}
-        />
-
-        {/* Filter bar */}
-        <SearchFilterBar hasFavoriteChannels={favoriteChannelIds.length > 0} />
-
-        {/* Error */}
-        {error && (
-          <div className="rounded-2xl bg-red-50 p-5 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            {error}. Try again or check your connection.
-          </div>
-        )}
-
-        {/* Initial loading */}
-        {loading && (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 12 }, (_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        )}
-
-        {/* Video grid — hide when filtered to empty so we show the message instead */}
-        {!loading &&
-          videos.length > 0 &&
-          filteredVideos.length > 0 && (
+          {/* Video grid */}
+          {!loading && videos.length > 0 && filteredVideos.length > 0 && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredVideos.map((video) => (
                 <VideoCard key={video.id} video={video} />
               ))}
-
-              {/* Loading more skeletons */}
               {loadingMore &&
                 Array.from({ length: 4 }, (_, i) => (
                   <SkeletonCard key={`more-${i}`} />
@@ -295,27 +285,23 @@ export function SearchPage() {
             </div>
           )}
 
-        {/* Infinite scroll sentinel — keep loading when we have raw videos */}
-        {hasMore && !loading && videos.length > 0 && (
-          <div ref={sentinelRef} className="h-1" />
-        )}
+          {/* Infinite scroll sentinel */}
+          {hasMore && !loading && videos.length > 0 && (
+            <div ref={sentinelRef} className="h-1" />
+          )}
 
-        {/* Empty state — no search results at all */}
-        {!loading && !error && query && videos.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <SearchMd className="mb-3 size-10 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              No videos found for "{query}". Try different keywords.
-            </p>
-          </div>
-        )}
+          {/* Empty state — no results */}
+          {!loading && !error && query && videos.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <SearchMd className="mb-3 size-10 text-gray-300 dark:text-gray-600" />
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                No videos found for "{query}". Try different keywords.
+              </p>
+            </div>
+          )}
 
-        {/* Filtered empty — we have results but none match filters */}
-        {!loading &&
-          !error &&
-          query &&
-          videos.length > 0 &&
-          filteredVideos.length === 0 && (
+          {/* Filtered empty */}
+          {!loading && !error && query && videos.length > 0 && filteredVideos.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <SearchMd className="mb-3 size-10 text-gray-300 dark:text-gray-600" />
               <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -323,7 +309,45 @@ export function SearchPage() {
               </p>
             </div>
           )}
-      </div>
+        </div>
+      )}
+
+      {/* Channels tab */}
+      {activeTab === 'channels' && (
+        <div className="space-y-3">
+          {/* Loading */}
+          {channelsLoading && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {Array.from({ length: 8 }, (_, i) => (
+                <SkeletonChannelCard key={i} />
+              ))}
+            </div>
+          )}
+
+          {/* Channel grid */}
+          {!channelsLoading && channels.length > 0 && (
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+              {channels.map((channel, i) => (
+                <SearchChannelCard
+                  key={channel.id}
+                  channel={channel}
+                  index={i}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!channelsLoading && channels.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Users01 className="mb-3 size-10 text-gray-300 dark:text-gray-600" />
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                No channels found for "{query}". Try different keywords.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

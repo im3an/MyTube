@@ -1,14 +1,16 @@
-import { useMemo } from 'react'
+import { useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useUserData } from '@/hooks/useUserData'
 import { useVideosByIds } from '@/hooks/useYouTube'
+import { cn } from '@/lib/utils'
 
 const MIN_POSITION_SEC = 10
 const MAX_VIDEOS = 8
 
 export function ContinueWatchingSection() {
   const { playbackPositions } = useUserData()
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const eligibleIds = useMemo(() => {
     return Object.entries(playbackPositions)
@@ -42,17 +44,20 @@ export function ContinueWatchingSection() {
         </Link>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scrollbar-hide pb-1"
+      >
         {loading
           ? [...Array(Math.min(eligibleIds.length, 4))].map((_, i) => (
               <div
                 key={i}
                 className="w-52 shrink-0 animate-pulse sm:w-60"
               >
-                <div className="aspect-video rounded-xl bg-gray-200 dark:bg-gray-700" />
+                <div className="aspect-video rounded-xl bg-gray-100 dark:bg-gray-800" />
                 <div className="mt-2 space-y-1.5">
-                  <div className="h-3.5 w-4/5 rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="h-3 w-3/5 rounded bg-gray-200 dark:bg-gray-700" />
+                  <div className="h-3.5 w-4/5 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-3 w-3/5 rounded bg-gray-100 dark:bg-gray-800" />
                 </div>
               </div>
             ))
@@ -81,7 +86,9 @@ export function ContinueWatchingSection() {
                     )}
                     <div className="absolute inset-x-0 bottom-0 h-1 bg-gray-700/60">
                       <div
-                        className="h-full rounded-r-full bg-red-500 transition-all duration-300"
+                        className={cn(
+                          'h-full rounded-r-full bg-red-500 transition-all duration-300',
+                        )}
                         style={{ width: `${pct}%` }}
                       />
                     </div>

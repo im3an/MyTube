@@ -16,6 +16,7 @@ import {
   Settings01,
   Announcement02,
   Download01,
+  Bell01,
 } from '@untitledui/icons'
 import { Avatar } from '@/components/base/avatar/avatar'
 import { useUserData } from '@/hooks/useUserData'
@@ -29,6 +30,7 @@ const mainNav = [
 ]
 
 const libraryNav = [
+  { to: '/notifications', icon: Bell01, label: 'Notifications' },
   { to: '/history', icon: Clock, label: 'History' },
   { to: '/playlists', icon: VideoRecorder, label: 'Your videos' },
   { to: '/watch-later', icon: Bookmark, label: 'Watch later' },
@@ -38,7 +40,7 @@ const libraryNav = [
 ]
 
 const moreNav = [
-  { to: '/category/trending', icon: TrendUp01, label: 'Trending' },
+  { to: '/trending', icon: TrendUp01, label: 'Trending' },
   { to: '/premium', icon: Play, label: 'Premium' },
   { to: '/gaming', icon: Tv01, label: 'Gaming' },
   { to: '/news', icon: Announcement02, label: 'News' },

@@ -1,30 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
-
-/** Force ChannelPage remount when param changes — fixes "first click blank" routing bug. */
-function ChannelPageWithKey() {
-  const { id } = useParams<{ id: string }>()
-  return <ChannelPage key={id ?? 'empty'} />
-}
-
-function RedirectCategoryToSearch() {
-  const { slug } = useParams<{ slug: string }>()
-  return <Navigate to={slug ? `/?category=${slug}` : '/'} replace />
-}
-
-function RedirectExploreToCategory() {
-  const location = useLocation()
-  const path = location.pathname.replace(/^\//, '')
-  const categoryMap: Record<string, string> = {
-    premium: 'trending',
-    gaming: 'gaming',
-    live: 'live',
-    news: 'news',
-  }
-  const category = categoryMap[path] ?? 'all'
-  return <Navigate to={`/?category=${category}`} replace />
-}
+import { PageLoader } from '@/components/ui/PageLoader'
+import { MiniPlayer } from '@/components/video/MiniPlayer'
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })))
 const WatchPage = lazy(() => import('@/pages/WatchPage').then((m) => ({ default: m.WatchPage })))
@@ -41,10 +19,20 @@ const DownloadPage = lazy(() => import('@/pages/DownloadPage').then((m) => ({ de
 const SearchPage = lazy(() => import('@/pages/SearchPage').then((m) => ({ default: m.SearchPage })))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const SignInPage = lazy(() => import('@/pages/SignInPage').then((m) => ({ default: m.SignInPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })))
+const TrendingPage = lazy(() => import('@/pages/TrendingPage').then((m) => ({ default: m.TrendingPage })))
+const CategoryPage = lazy(() => import('@/pages/CategoryPage').then((m) => ({ default: m.CategoryPage })))
+
+/** Force ChannelPage remount when param changes — fixes "first click blank" routing bug. */
+function ChannelPageWithKey() {
+  const { id } = useParams<{ id: string }>()
+  return <ChannelPage key={id ?? 'empty'} />
+}
 
 function App() {
   return (
-    <Suspense>
+    <>
+    <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/" element={<AppLayout />}>
@@ -60,16 +48,20 @@ function App() {
           <Route path="subscriptions" element={<SubscriptionsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="download" element={<DownloadPage />} />
-          <Route path="category/:slug" element={<RedirectCategoryToSearch />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="trending" element={<TrendingPage />} />
+          <Route path="category/:slug" element={<CategoryPage />} />
           <Route path="channel/:id" element={<ChannelPageWithKey />} />
-          <Route path="premium" element={<RedirectExploreToCategory />} />
-          <Route path="gaming" element={<RedirectExploreToCategory />} />
-          <Route path="live" element={<RedirectExploreToCategory />} />
-          <Route path="news" element={<RedirectExploreToCategory />} />
+          <Route path="gaming" element={<Navigate to="/category/gaming" replace />} />
+          <Route path="live" element={<Navigate to="/category/live" replace />} />
+          <Route path="news" element={<Navigate to="/category/news" replace />} />
+          <Route path="premium" element={<Navigate to="/trending" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </Suspense>
+    <MiniPlayer />
+    </>
   )
 }
 

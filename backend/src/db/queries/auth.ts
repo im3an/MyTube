@@ -4,6 +4,27 @@
 
 import { query } from '../client.js'
 
+const AVATAR_RELATIVE_RE = /^\/avatars\/[a-zA-Z0-9_-]{1,64}(\.[a-zA-Z]{2,5})?$/
+const TRUSTED_CDN_HOSTNAMES = new Set([
+  'yt3.ggpht.com',
+  'lh3.googleusercontent.com',
+  'i.ytimg.com',
+])
+
+function isValidAvatarUrl(url: string): boolean {
+  if (AVATAR_RELATIVE_RE.test(url)) return true
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return false
+    const host = parsed.hostname
+    if (TRUSTED_CDN_HOSTNAMES.has(host)) return true
+    if (/^[a-z0-9-]+\.piped\.[a-z0-9.-]+$/.test(host)) return true
+    return false
+  } catch {
+    return false
+  }
+}
+
 export interface User {
   id: string
   username: string
@@ -98,6 +119,9 @@ export async function updateUser(userId: string, updates: { display_name?: strin
     values.push(updates.display_name)
   }
   if (updates.avatar_url !== undefined) {
+    if (!isValidAvatarUrl(updates.avatar_url)) {
+      throw new Error('Invalid avatar URL')
+    }
     parts.push(`avatar_url = $${i++}`)
     values.push(updates.avatar_url)
   }

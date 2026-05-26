@@ -1,151 +1,183 @@
-# MyTube Deployment Guide
+# NØDE — Deployment Guide
 
-Complete step-by-step deployment to Neon + Render + Netlify (all free tier).
+Complete step-by-step guide to go from repo → live URL in ~11 minutes.  
+Stack: **Neon** (PostgreSQL) · **Render** (backend API) · **Netlify** (frontend SPA)
 
 ---
 
 ## Prerequisites
 
-- GitHub account
-- [Neon](https://neon.tech) account
-- [Render](https://render.com) account
-- [Netlify](https://netlify.com) account
+| Account | URL | Free tier |
+|---------|-----|-----------|
+| Neon | https://neon.tech | 0.5 GB storage, 1 project |
+| Render | https://render.com | 750 hrs/month (spins down after inactivity) |
+| Netlify | https://app.netlify.com | 100 GB bandwidth, 300 build mins |
+
+You'll also need your repo pushed to GitHub.
 
 ---
 
-## Step 1: Database (Neon)
+## Step 1 — Database (Neon) — 2 min
 
-1. Go to [neon.tech](https://neon.tech) and sign in
-2. **New Project** → name it `mytube` → Create
-3. Copy the connection string (e.g. `postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require`)
-4. Run migrations locally:
+1. Go to **dashboard.neon.tech** → **New Project**
+2. Name it `mytube`, choose a region close to your users
+3. Copy the **connection string** — looks like:  
+   `postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require`
+4. Run migrations **once** from your local machine:
 
 ```bash
-cd /Users/im3an/MyTube
-export DATABASE_URL="postgresql://YOUR_NEON_CONNECTION_STRING"
+export DATABASE_URL="postgresql://YOUR_NEON_STRING_HERE"
 npm run deploy:migrate
 ```
 
-Or from backend folder:
-
-```bash
-cd backend
-DATABASE_URL="postgresql://..." npm run db:migrate
+You should see:
+```
+[deploy] Running database migrations...
+[deploy] Migrations complete.
 ```
 
 ---
 
-## Step 2: Backend (Render)
+## Step 2 — Backend (Render) — 5 min
 
-1. Push your code to GitHub (if not already)
-2. Go to [dashboard.render.com](https://dashboard.render.com)
-3. **New** → **Web Service**
-4. Connect your GitHub repo → select `MyTube`
-5. Configure:
+1. Go to **dashboard.render.com** → **New** → **Web Service**
+2. Connect your GitHub repo
+3. Settings:
    - **Name:** `mytube-backend`
-   - **Root Directory:** (leave empty)
+   - **Root Directory:** *(leave blank)*
+   - **Runtime:** Node
+   - **Region:** Oregon (or closest to Neon region)
    - **Build Command:** `cd backend && npm install --include=dev && npm run build`
    - **Start Command:** `cd backend && npm run db:migrate && npm start`
    - **Instance Type:** Free
 
-6. **Environment** → Add variables:
+4. Under **Environment**, add these variables:
 
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | Your Neon connection string |
 | `NODE_ENV` | `production` |
-| `CORS_ORIGIN` | `https://YOUR-SITE.netlify.app` (use placeholder for now, update after Netlify) |
-| `WEBAUTHN_RP_ID` | `YOUR-SITE.netlify.app` |
-| `WEBAUTHN_ORIGIN` | `https://YOUR-SITE.netlify.app` |
-| `WEBAUTHN_RP_NAME` | `MyTube` |
-| `SESSION_SECRET` | Run `openssl rand -hex 32` and paste |
-| `GNEWS_API_KEY` | (optional) from gnews.io |
+| `DATABASE_URL` | Your Neon connection string |
+| `SESSION_SECRET` | Run `openssl rand -hex 32` and paste the output |
+| `CORS_ORIGIN` | `https://PLACEHOLDER.netlify.app` *(update in Step 5)* |
+| `WEBAUTHN_RP_ID` | `PLACEHOLDER.netlify.app` *(update in Step 5)* |
+| `WEBAUTHN_ORIGIN` | `https://PLACEHOLDER.netlify.app` *(update in Step 5)* |
+| `WEBAUTHN_RP_NAME` | `NØDE` |
+| `GNEWS_API_KEY` | *(optional)* from gnews.io |
 
-7. **Create Web Service**
-8. Wait for deploy → copy your backend URL (e.g. `https://mytube-backend-xxx.onrender.com`)
+5. Click **Create Web Service** — wait for the green ✓
+6. Copy your backend URL: `https://mytube-backend-XXXX.onrender.com`
 
 ---
 
-## Step 3: Update netlify.toml
+## Step 3 — Configure Netlify redirect — 30 sec
 
-Replace `YOUR-RENDER-URL` with your Render backend URL (without `https://`):
-
-```toml
-to = "https://mytube-backend-xxx.onrender.com/api/:splat"
-```
-
-Or run (replace with your actual URL):
+Replace the placeholder backend URL in `netlify.toml`:
 
 ```bash
-# Example - replace mytube-backend-xxxx with your Render service name
-sed -i '' 's|YOUR-RENDER-URL|mytube-backend-xxxx|g' netlify.toml
+# Replace XXXX with your actual Render service name
+sed -i '' 's|mytube-backend-mz1f|mytube-backend-XXXX|g' netlify.toml
+git add netlify.toml
+git commit -m "chore: set render backend url"
+git push
 ```
 
 ---
 
-## Step 4: Frontend (Netlify)
+## Step 4 — Frontend (Netlify) — 3 min
 
-1. Go to [app.netlify.com](https://app.netlify.com)
-2. **Add new site** → **Import an existing project**
-3. Connect GitHub → select `MyTube`
-4. Build settings (should auto-detect from netlify.toml):
+1. Go to **app.netlify.com** → **Add new site** → **Import an existing project**
+2. Connect GitHub → select your repo
+3. Build settings (auto-detected from `netlify.toml`):
    - **Build command:** `npm run build`
    - **Publish directory:** `dist`
-   - **Environment variables:** Add `VITE_USE_BACKEND=1` (or it's in netlify.toml)
+4. Under **Environment variables**, add:
 
-5. **Deploy site**
-6. Copy your Netlify URL (e.g. `https://random-name-123.netlify.app`)
+| Key | Value |
+|-----|-------|
+| `VITE_USE_BACKEND` | `1` |
 
----
-
-## Step 5: Wire Backend to Frontend
-
-1. **Render** → your service → **Environment** → Update:
-   - `CORS_ORIGIN` = `https://YOUR-NETLIFY-URL.netlify.app`
-   - `WEBAUTHN_RP_ID` = `YOUR-NETLIFY-URL.netlify.app`
-   - `WEBAUTHN_ORIGIN` = `https://YOUR-NETLIFY-URL.netlify.app`
-
-2. **Render** → **Manual Deploy** → Deploy latest
-
-3. **Netlify** → ensure `netlify.toml` has the correct Render URL in the redirect
-
-4. **Netlify** → **Trigger deploy** to rebuild
+5. Click **Deploy site** — wait ~60 seconds
+6. Copy your live URL: **`https://your-app-name.netlify.app`** 🎉
 
 ---
 
-## Step 6: Verify
+## Step 5 — Wire Render CORS — 1 min
 
-1. Open your Netlify URL
-2. Sign up (Create account) → passkey prompt should appear
-3. Watch a video, like, subscribe
-4. Check Settings → profile picture, display name
+Back in **Render Dashboard → mytube-backend → Environment**, update the three placeholders:
+
+| Key | New value |
+|-----|-----------|
+| `CORS_ORIGIN` | `https://your-app-name.netlify.app` |
+| `WEBAUTHN_RP_ID` | `your-app-name.netlify.app` |
+| `WEBAUTHN_ORIGIN` | `https://your-app-name.netlify.app` |
+
+Click **Save Changes** → Render will redeploy automatically (~30s).
 
 ---
 
-## Quick Commands Reference
+## ✅ Verification checklist
 
 ```bash
-# Generate session secret (for Render SESSION_SECRET)
-openssl rand -hex 32
+# 1. Check security headers
+curl -I https://your-app-name.netlify.app | grep -E 'x-frame|content-security|strict-transport'
 
-# Run migrations (after creating Neon project)
-export DATABASE_URL="postgresql://user:pass@host.neon.tech/db?sslmode=require"
-npm run deploy:migrate
+# 2. Check backend health
+curl https://mytube-backend-XXXX.onrender.com/health
 
-# Verify builds before deploying
-npm run deploy:check
-
-# Update netlify.toml with your Render URL (after backend is deployed)
-./scripts/set-netlify-redirect.sh mytube-backend-xxxx
+# 3. Check auth is wired
+curl https://your-app-name.netlify.app/api/auth/me
+# → {"user":null}  (unauthenticated — correct)
 ```
+
+- Open DevTools → Network → no CORS errors
+- Open DevTools → Application → Manifest shows NØDE (PWA installable)
+- Sign in with passkey → session persists on reload
+- Lighthouse PWA score → "Installable"
+
+---
+
+## Custom domain (optional)
+
+1. Netlify Dashboard → Domain management → Add custom domain
+2. Point your DNS CNAME to `your-app-name.netlify.app`
+3. Update Render env vars:
+   - `CORS_ORIGIN` → `https://yourdomain.com`
+   - `WEBAUTHN_RP_ID` → `yourdomain.com`
+   - `WEBAUTHN_ORIGIN` → `https://yourdomain.com`
+
+---
+
+## Environment variable reference
+
+### Backend (Render)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NODE_ENV` | ✅ | Must be `production` |
+| `DATABASE_URL` | ✅ | PostgreSQL connection string (Neon) |
+| `SESSION_SECRET` | ✅ | Random 32+ char string — `openssl rand -hex 32` |
+| `CORS_ORIGIN` | ✅ | Exact Netlify URL (no trailing slash) |
+| `WEBAUTHN_RP_ID` | ✅ | Domain only, no protocol: `your-app.netlify.app` |
+| `WEBAUTHN_ORIGIN` | ✅ | Full origin: `https://your-app.netlify.app` |
+| `WEBAUTHN_RP_NAME` | ✅ | App name shown in passkey prompt |
+| `PORT` | ❌ | Default: 4000 (Render overrides this) |
+| `GNEWS_API_KEY` | ❌ | From gnews.io — enables news category |
+| `PIPED_INSTANCES` | ❌ | Comma-separated Piped API URLs (built-in fallback used if unset) |
+
+### Frontend (Netlify)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_USE_BACKEND` | `1` | Set to `1` to route API calls through backend |
 
 ---
 
 ## Troubleshooting
 
-| Issue | Fix |
-|-------|-----|
-| 404 on /api/auth | Backend not running or wrong URL in netlify.toml |
-| 401 on sign-in | CORS_ORIGIN / WEBAUTHN_ORIGIN must match Netlify URL |
-| Passkey not showing | register/options returns 500 → check DATABASE_URL, migrations |
-| Render cold start | Free tier sleeps after 15 min; first request may take 30–60s |
+**"Database not ready"** — Run migrations: `DATABASE_URL="..." npm run deploy:migrate`
+
+**Passkey fails with "origin mismatch"** — Check `WEBAUTHN_ORIGIN` matches exactly (with `https://`, no trailing slash)
+
+**Videos not loading** — Check Render logs; Piped instances may be temporarily down. The backend auto-rotates through fallback instances.
+
+**Render spins down on free tier** — First request after inactivity takes ~30s. Upgrade to Starter ($7/mo) to keep always-on.

@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useUserData } from '@/hooks/useUserData'
 import { Input } from '@/components/base/input/input'
 import { Button } from '@/components/base/buttons/button'
-import { Bookmark, Plus, X } from '@untitledui/icons'
+import { Bookmark, Plus, X, Check, ChevronDown } from '@untitledui/icons'
+import { cn } from '@/lib/utils'
 
 interface SaveToPlaylistModalProps {
   videoId: string
@@ -16,17 +17,22 @@ export function SaveToPlaylistModal({
   isOpen,
   onClose,
 }: SaveToPlaylistModalProps) {
-  const { playlists, addToPlaylist, toggleWatchLater, createPlaylist } = useUserData()
+  const { playlists, addToPlaylist, removeFromPlaylist, toggleWatchLater, watchLater, createPlaylist } = useUserData()
   const [newPlaylistName, setNewPlaylistName] = useState('')
+  const [creatingNew, setCreatingNew] = useState(false)
 
-  const handleAddToPlaylist = (playlistId: string) => {
-    addToPlaylist(playlistId, videoId)
-    onClose()
+  const isInWatchLater = watchLater.includes(videoId)
+
+  const handleTogglePlaylist = (playlistId: string, isSaved: boolean) => {
+    if (isSaved) {
+      removeFromPlaylist(playlistId, videoId)
+    } else {
+      addToPlaylist(playlistId, videoId)
+    }
   }
 
   const handleWatchLater = () => {
     toggleWatchLater(videoId)
-    onClose()
   }
 
   const handleCreatePlaylist = () => {
@@ -34,7 +40,7 @@ export function SaveToPlaylistModal({
       const id = createPlaylist(newPlaylistName.trim())
       addToPlaylist(id, videoId)
       setNewPlaylistName('')
-      onClose()
+      setCreatingNew(false)
     }
   }
 
@@ -74,58 +80,136 @@ export function SaveToPlaylistModal({
 
               {/* Options */}
               <div className="max-h-[40vh] overflow-y-auto p-1.5">
+                {/* Watch Later */}
                 <button
                   onClick={handleWatchLater}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors',
+                    isInWatchLater
+                      ? 'bg-brand-50 dark:bg-brand-950/20'
+                      : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                  )}
                 >
-                  <Bookmark className="size-4 text-gray-400 dark:text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Watch later
-                  </span>
+                  <div className={cn(
+                    'flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                    isInWatchLater
+                      ? 'border-brand-500 bg-brand-500 text-white dark:border-brand-400 dark:bg-brand-400'
+                      : 'border-gray-200 dark:border-gray-700'
+                  )}>
+                    {isInWatchLater && <Check className="size-3" strokeWidth={3} />}
+                  </div>
+                  <Bookmark className={cn(
+                    'size-4 shrink-0',
+                    isInWatchLater ? 'text-brand-500 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'
+                  )} />
+                  <div className="min-w-0 flex-1">
+                    <span className={cn(
+                      'text-sm font-medium',
+                      isInWatchLater ? 'text-brand-600 dark:text-brand-400' : 'text-gray-700 dark:text-gray-200'
+                    )}>
+                      Watch later
+                    </span>
+                  </div>
                 </button>
 
-                {playlists.map((playlist) => (
-                  <button
-                    key={playlist.id}
-                    onClick={() => handleAddToPlaylist(playlist.id)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04]"
-                  >
-                    <div className="flex size-4 items-center justify-center">
-                      <div className="size-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                        {playlist.name}
-                      </span>
-                      <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                        {playlist.videoIds.length}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                {/* Playlists */}
+                {playlists.map((playlist) => {
+                  const isSaved = playlist.videoIds.includes(videoId)
+                  return (
+                    <button
+                      key={playlist.id}
+                      onClick={() => handleTogglePlaylist(playlist.id, isSaved)}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors',
+                        isSaved
+                          ? 'bg-brand-50 dark:bg-brand-950/20'
+                          : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                      )}
+                    >
+                      <div className={cn(
+                        'flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                        isSaved
+                          ? 'border-brand-500 bg-brand-500 text-white dark:border-brand-400 dark:bg-brand-400'
+                          : 'border-gray-200 dark:border-gray-700'
+                      )}>
+                        {isSaved && <Check className="size-3" strokeWidth={3} />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className={cn(
+                          'text-sm font-medium',
+                          isSaved ? 'text-brand-600 dark:text-brand-400' : 'text-gray-700 dark:text-gray-200'
+                        )}>
+                          {playlist.name}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                          {playlist.videoIds.length} video{playlist.videoIds.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
 
-              {/* Create new */}
-              <div className="border-t border-gray-100 p-4 dark:border-gray-800">
-                <div className="flex gap-2">
-                  <div className="min-w-0 flex-1">
-                    <Input
-                      placeholder="New playlist name"
-                      value={newPlaylistName}
-                      onChange={setNewPlaylistName}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleCreatePlaylist}
-                    isDisabled={!newPlaylistName.trim()}
-                    color="primary"
-                    size="md"
-                    className="rounded-xl"
-                    iconLeading={Plus}
-                  >
-                    Create
-                  </Button>
-                </div>
+              {/* Create new section */}
+              <div className="border-t border-gray-100 dark:border-gray-800">
+                <AnimatePresence initial={false}>
+                  {creatingNew ? (
+                    <motion.div
+                      key="form"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex gap-2 p-4">
+                        <div className="min-w-0 flex-1">
+                          <Input
+                            placeholder="Playlist name"
+                            value={newPlaylistName}
+                            onChange={setNewPlaylistName}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleCreatePlaylist()
+                              if (e.key === 'Escape') setCreatingNew(false)
+                            }}
+                            autoFocus
+                          />
+                        </div>
+                        <Button
+                          onClick={handleCreatePlaylist}
+                          isDisabled={!newPlaylistName.trim()}
+                          color="primary"
+                          size="md"
+                          className="rounded-xl"
+                          iconLeading={Plus}
+                        >
+                          Create
+                        </Button>
+                        <Button
+                          onClick={() => { setCreatingNew(false); setNewPlaylistName('') }}
+                          color="tertiary"
+                          size="md"
+                          className="rounded-xl"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="trigger"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setCreatingNew(true)}
+                      className="flex w-full items-center gap-2.5 px-5 py-3.5 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.04] dark:hover:text-gray-200"
+                    >
+                      <Plus className="size-4" />
+                      New playlist
+                      <ChevronDown className="ml-auto size-4 opacity-50" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </div>

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "fix/**", "feat/**"]
+  pull_request:
+
+jobs:
+  build:
+    name: Build & Type-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Type-check & build frontend
+        run: npm run build
+        env:
+          VITE_USE_BACKEND: "0"
+
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+
+      - name: Type-check & build backend
+        run: cd backend && npm run build
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 7

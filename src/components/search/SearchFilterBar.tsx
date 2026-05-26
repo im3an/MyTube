@@ -19,7 +19,7 @@ export type FilterOption =
   | 'shorts'
   | 'long'
 
-export type DurationOption = 'any' | 'short' | 'medium' | 'long-duration'
+export type DurationOption = 'any' | 'short' | 'medium' | 'long'
 
 const SORT_OPTIONS: { value: SortOption; label: string; icon: typeof Clock }[] = [
   { value: 'relevant', label: 'Relevant', icon: Film01 },
@@ -36,14 +36,14 @@ const FILTER_OPTIONS: {
   { value: 'from-my-channels', label: 'From my channels', icon: User01 },
   { value: 'live', label: 'Live', icon: Signal01 },
   { value: 'shorts', label: 'Shorts', icon: Zap },
-  { value: 'long', label: 'Long', icon: Hourglass01 },
+  { value: 'long', label: 'Long (20+ min)', icon: Hourglass01 },
 ]
 
 const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
   { value: 'any', label: 'Any duration' },
   { value: 'short', label: 'Short (< 4 min)' },
   { value: 'medium', label: 'Medium (4–20 min)' },
-  { value: 'long-duration', label: 'Long (> 20 min)' },
+  { value: 'long', label: 'Long (> 20 min)' },
 ]
 
 const SORT_PARAM = 'sort'
@@ -132,7 +132,7 @@ function FilterChip({
           transition={{ type: 'spring', bounce: 0.18, duration: 0.5 }}
         />
       )}
-      {children}
+      <span className="relative z-10 flex items-center gap-1.5">{children}</span>
     </button>
   )
 }
@@ -141,10 +141,10 @@ export function SearchFilterBar({ hasFavoriteChannels = false }: SearchFilterBar
   const { sort, filter, duration, setSort, setFilter, setDuration } = useSearchFilters()
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       {/* Sort */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <span className="w-14 shrink-0 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
           Sort
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -157,18 +157,18 @@ export function SearchFilterBar({ hasFavoriteChannels = false }: SearchFilterBar
                 onClick={() => setSort(opt.value)}
                 layoutId={`search-sort-${opt.value}`}
               >
-                <Icon className="relative z-10 size-3.5" />
-                <span className="relative z-10">{opt.label}</span>
+                <Icon className="size-3.5" />
+                {opt.label}
               </FilterChip>
             )
           })}
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Type filter */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          Filter
+        <span className="w-14 shrink-0 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          Type
         </span>
         <div className="flex flex-wrap gap-1.5">
           {FILTER_OPTIONS.map((opt) => {
@@ -181,18 +181,18 @@ export function SearchFilterBar({ hasFavoriteChannels = false }: SearchFilterBar
                 onClick={() => setFilter(opt.value)}
                 layoutId={`search-filter-${opt.value}`}
               >
-                <Icon className="relative z-10 size-3.5" />
-                <span className="relative z-10">{opt.label}</span>
+                <Icon className="size-3.5" />
+                {opt.label}
               </FilterChip>
             )
           })}
         </div>
       </div>
 
-      {/* Duration */}
+      {/* Duration filter */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="shrink-0 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          Duration
+        <span className="w-14 shrink-0 text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          Length
         </span>
         <div className="flex flex-wrap gap-1.5">
           {DURATION_OPTIONS.map((opt) => (
@@ -202,7 +202,7 @@ export function SearchFilterBar({ hasFavoriteChannels = false }: SearchFilterBar
               onClick={() => setDuration(opt.value)}
               layoutId={`search-duration-${opt.value}`}
             >
-              <span className="relative z-10">{opt.label}</span>
+              {opt.label}
             </FilterChip>
           ))}
         </div>
